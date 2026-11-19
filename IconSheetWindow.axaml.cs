@@ -11,9 +11,10 @@ public partial class IconSheetWindow : Window
     public IconSheetWindow()
     {
         InitializeComponent();
-        Topmost = true;
-        Background = new SolidColorBrush(Color.Parse("#0C0B09"));
+        DialogAppearance.Apply(this);
+        Opened += (_, _) => DialogAppearance.Apply(this);
 
+        KeyDown += (_, e) => { if (e.Key == Avalonia.Input.Key.Escape) Close(); };
         foreach (var name in WeatherIcon.Names)
         {
             var icon = new WeatherIcon
@@ -28,7 +29,7 @@ public partial class IconSheetWindow : Window
             {
                 Text = name,
                 FontSize = 11,
-                Foreground = new SolidColorBrush(Color.Parse("#7D7364")),
+                Foreground = DialogAppearance.Brush("#B6AC99", "#6B6459"),
                 HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
             };
 

@@ -1,71 +1,57 @@
-﻿<Window xmlns="https://github.com/avaloniaui"
+<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:svc="using:NightBoard.Services"
         x:Class="NightBoard.SettingsWindow"
         Title="夜板 · 设置"
         Width="560"
-        SizeToContent="Height"
+        Height="630"
         Background="Transparent"
-        Foreground="#E6DCC8"
+
         FontFamily="{StaticResource FontUi}"
         FontSize="14"
-        SystemDecorations="None"
-        CanResize="False"
-        WindowStartupLocation="Manual"
+        SystemDecorations="Full" ShowInTaskbar="False"
+        CanResize="True"
+        WindowStartupLocation="CenterOwner"
         Focusable="True">
 
   <Window.Styles>
     <Style Selector="TextBlock.label">
-      <Setter Property="Foreground" Value="#7D7364"/>
-      <Setter Property="FontSize" Value="13"/>
+        <Setter Property="FontSize" Value="13"/>
       <Setter Property="Margin" Value="0,0,0,6"/>
       <Setter Property="LetterSpacing" Value="1"/>
     </Style>
     <Style Selector="TextBlock.hint">
-      <Setter Property="Foreground" Value="#4A443A"/>
-      <Setter Property="FontSize" Value="12"/>
+        <Setter Property="FontSize" Value="12"/>
       <Setter Property="TextWrapping" Value="Wrap"/>
     </Style>
     <Style Selector="TextBox">
-      <Setter Property="Background" Value="#161411"/>
-      <Setter Property="Foreground" Value="#E6DCC8"/>
-      <Setter Property="BorderBrush" Value="#2A2723"/>
-      <Setter Property="CornerRadius" Value="3"/>
+            <Setter Property="CornerRadius" Value="7"/>
       <Setter Property="Padding" Value="10,8"/>
       <Setter Property="FontSize" Value="14"/>
-      <Setter Property="CaretBrush" Value="#E0B65C"/>
-    </Style>
+      </Style>
     <Style Selector="ComboBox">
-      <Setter Property="Background" Value="#161411"/>
-      <Setter Property="Foreground" Value="#E6DCC8"/>
-      <Setter Property="BorderBrush" Value="#2A2723"/>
-      <Setter Property="CornerRadius" Value="3"/>
+            <Setter Property="CornerRadius" Value="7"/>
       <Setter Property="Padding" Value="10,6"/>
       <Setter Property="FontSize" Value="14"/>
     </Style>
     <Style Selector="Button">
-      <Setter Property="Background" Value="#1B1815"/>
-      <Setter Property="Foreground" Value="#D8CFBB"/>
-      <Setter Property="BorderBrush" Value="#2A2723"/>
-      <Setter Property="BorderThickness" Value="1"/>
-      <Setter Property="CornerRadius" Value="3"/>
+            <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="7"/>
       <Setter Property="Padding" Value="20,8"/>
       <Setter Property="FontSize" Value="14"/>
     </Style>
     <Style Selector="Button.accent">
-      <Setter Property="Background" Value="#2A2318"/>
-      <Setter Property="Foreground" Value="#E0B65C"/>
-      <Setter Property="BorderBrush" Value="#4A3D22"/>
-    </Style>
+          </Style>
   </Window.Styles>
 
-  <Border CornerRadius="14" Background="#0C0B09" BorderBrush="#2A2723" BorderThickness="1"
+  <Border
           ClipToBounds="True">
-  <Grid Margin="30,26" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
+  <Grid Margin="30,26" RowDefinitions="Auto,*,Auto">
 
-    <TextBlock Grid.Row="0" Text="设置" FontSize="20" Foreground="#F4EBD8"
+    <TextBlock Grid.Row="0" Text="设置" FontSize="20"
                FontFamily="{StaticResource FontMedium}" LetterSpacing="2" Margin="0,0,0,22"/>
 
+    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto"><Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto">
     <StackPanel Grid.Row="1" Margin="0,0,0,14">
       <TextBlock Classes="label" Text="天气城市"/>
       <Grid ColumnDefinitions="*,10,Auto">
@@ -73,14 +59,14 @@
         <Button x:Name="SearchButton" Grid.Column="2" Content="搜索" Click="OnSearchCity"/>
       </Grid>
       <ListBox x:Name="CityList" MaxHeight="126" Margin="0,8,0,0" IsVisible="False"
-               Background="#12100E" BorderBrush="#2A2723" SelectionChanged="OnCityPicked">
+               SelectionChanged="OnCityPicked">
         <ListBox.ItemTemplate>
           <DataTemplate x:DataType="svc:CityCandidate">
-            <TextBlock Text="{Binding Label}" FontSize="13" Foreground="#C8BFAC"/>
+            <TextBlock Text="{Binding Label}" FontSize="13"/>
           </DataTemplate>
         </ListBox.ItemTemplate>
       </ListBox>
-      <TextBlock Classes="hint" Margin="0,8,0,0" Background="#0C0B09"
+      <TextBlock Classes="hint" Margin="0,8,0,0"
                  Text="搜到后点一条，经纬度和城市编号会一起填进来。留空则保持当前城市。"/>
     </StackPanel>
 
@@ -117,13 +103,14 @@
                  Text="名称留空就不显示。日期写 yyyy-MM-dd。"/>
     </StackPanel>
 
-    <TextBlock Grid.Row="6" Classes="hint"
-               Text="按 S 打开这一页，Esc 关闭；保存后立刻生效。"/>
+    <TextBlock x:Name="Feedback" Grid.Row="6" Classes="hint"
+               Text="Esc 取消；保存后立即生效。"/>
 
-    <StackPanel Grid.Row="7" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10">
+    </Grid></ScrollViewer>
+    <StackPanel Margin="0,12,0,0" Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10">
       <Button x:Name="CancelButton" Content="取消" Click="OnCancel"/>
       <Button x:Name="SaveButton" Content="保存" Click="OnSave"
-              Background="#2A2318" Foreground="#E0B65C" BorderBrush="#4A3D22"/>
+             />
     </StackPanel>
 
   </Grid>

@@ -18,18 +18,9 @@ public partial class AlertWindow : Window
     public AlertWindow(IReadOnlyList<WeatherAlert> alerts)
     {
         InitializeComponent();
-        Topmost = true;
+        DialogAppearance.Apply(this);
+        Opened += (_, _) => DialogAppearance.Apply(this);
         Cursor = new Cursor(StandardCursorType.Arrow);
-
-        // 圆角窗口：背景交给里面的 Border
-        TransparencyLevelHint = new[] { WindowTransparencyLevel.Transparent };
-        Background = Brushes.Transparent;
-        AddHandler(PointerPressedEvent, (_, e) =>
-        {
-            if (e.Handled) return;
-            if (e.Source is Button or TextBox or ComboBox or ListBox or ScrollViewer) return;
-            if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) BeginMoveDrag(e);
-        }, RoutingStrategies.Bubble);
 
         foreach (var a in alerts)
         {
@@ -52,7 +43,7 @@ public partial class AlertWindow : Window
                 Text = string.IsNullOrEmpty(a.Title) ? $"{a.Type}{a.Level}预警" : a.Title,
                 FontSize = 17,
                 FontFamily = new FontFamily("avares://NightBoard/Assets/Fonts#HarmonyOS Sans SC Medium"),
-                Foreground = new SolidColorBrush(Color.Parse("#F4EBD8")),
+                Foreground = DialogAppearance.Brush("#F4EBD8", "#1E1B16"),
                 TextWrapping = TextWrapping.Wrap,
             });
 
@@ -62,7 +53,7 @@ public partial class AlertWindow : Window
                     ? $"{a.Type} · {a.Level}预警"
                     : $"{a.Type} · {a.Level}预警 · {a.PubTime:MM-dd HH:mm} 发布",
                 FontSize = 12,
-                Foreground = new SolidColorBrush(Color.Parse("#6E6557")),
+                Foreground = DialogAppearance.Brush("#B6AC99", "#6B6459"),
                 Margin = new Thickness(16, 6, 0, 0),
             };
 
@@ -71,7 +62,7 @@ public partial class AlertWindow : Window
                 Text = string.IsNullOrWhiteSpace(a.Detail) ? "（这条预警没有正文）" : a.Detail.Trim(),
                 FontSize = 13,
                 LineHeight = 22,
-                Foreground = new SolidColorBrush(Color.Parse("#C8BFAC")),
+                Foreground = DialogAppearance.Brush("#C8BFAC", "#3B342A"),
                 TextWrapping = TextWrapping.Wrap,
                 Margin = new Thickness(0, 10, 0, 0),
             };
@@ -80,28 +71,13 @@ public partial class AlertWindow : Window
             block.Children.Add(head);
             block.Children.Add(meta);
             block.Children.Add(body);
-            List.Children.Add(block);
+            List.Children.Add(new Border { Background = DialogAppearance.Brush("#191713", "#EEE7DB"), CornerRadius = new CornerRadius(8), Padding = new Thickness(16), Child = block });
         }
 
         KeyDown += (_, e) =>
         {
             if (e.Key == Key.Escape) Close();
         };
-    }
-
-    protected override void OnOpened(EventArgs e)
-    {
-        base.OnOpened(e);
-
-        var screen = Screens.ScreenFromWindow(this) ?? Screens.Primary;
-        if (screen is null) return;
-
-        var wa = screen.WorkingArea;
-        double s = screen.Scaling <= 0 ? 1 : screen.Scaling;
-        double left = wa.X / s + Math.Max(0, (wa.Width / s - ClientSize.Width) / 2);
-        double top = wa.Y / s + Math.Max(0, (wa.Height / s - ClientSize.Height) / 2);
-
-        Position = new PixelPoint((int)Math.Round(left), (int)Math.Round(top));
     }
 
     private void OnClose(object? sender, RoutedEventArgs e) => Close();

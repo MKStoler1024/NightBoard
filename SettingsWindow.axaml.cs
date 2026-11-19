@@ -22,15 +22,11 @@ public partial class SettingsWindow : Window
     {
         InitializeComponent();
 
-        // 看板是全屏置顶的，设置窗也得压在上面，否则点不到
-        Topmost = true;
+        DialogAppearance.Apply(this);
+        Opened += (_, _) => DialogAppearance.Apply(this);
         Cursor = new Cursor(StandardCursorType.Arrow);
 
-        // 圆角窗口：让系统不画背景，角落才透得出来
-        TransparencyLevelHint = new[] { WindowTransparencyLevel.Transparent };
-        Background = Brushes.Transparent;
-        AddHandler(PointerPressedEvent, OnDragWindow, RoutingStrategies.Bubble);
-
+        KeyDown += (_, e) => { if (e.Key == Key.Escape) Close(false); };
         var s = AppSettings.Load();
 
         CityBox.Text = string.IsNullOrWhiteSpace(WeatherService.CityName)
@@ -67,30 +63,10 @@ public partial class SettingsWindow : Window
         };
     }
 
-    protected override void OnOpened(EventArgs e)
-    {
-        base.OnOpened(e);
-        Recenter();
-    }
-
-    /// <summary>CenterScreen 在 150% 缩放下会偏，索性自己按工作区算一次。内容变高后也要重算。</summary>
-    private void Recenter()
-    {
-        var screen = Screens.ScreenFromWindow(this) ?? Screens.Primary;
-        if (screen is null) return;
-
-        var wa = screen.WorkingArea;
-        double s = screen.Scaling <= 0 ? 1 : screen.Scaling;
-
-        // Position 在这里是按逻辑像素生效的（平台会再乘一遍缩放），所以先除回去
-        double left = wa.X / s + Math.Max(0, (wa.Width / s - ClientSize.Width) / 2);
-        double top = wa.Y / s + Math.Max(0, (wa.Height / s - ClientSize.Height) / 2);
-
-        Position = new PixelPoint((int)Math.Round(left), (int)Math.Round(top));
-    }
-
     private async void OnSearchCity(object? sender, RoutedEventArgs e)
     {
+        if (!SearchButton.IsEnabled) return;
+        Feedback.Text = "正在查找城市…";
         SearchButton.IsEnabled = false;
         var found = await WeatherService.SearchCitiesAsync(CityBox.Text ?? "");
         SearchButton.IsEnabled = true;
@@ -98,30 +74,27 @@ public partial class SettingsWindow : Window
         CityList.ItemsSource = found;
         CityList.IsVisible = found.Count > 0;
 
-        // 列表一出现窗口就变高，重新居中一次
-        Avalonia.Threading.Dispatcher.UIThread.Post(Recenter);
+        Feedback.Text = found.Count == 0 ? "没有找到城市，请检查名称或稍后再试。" : $"找到 {found.Count} 个结果，请选择城市。";
     }
 
     private void OnCityPicked(object? sender, SelectionChangedEventArgs e)
     {
         if (CityList.SelectedItem is not CityCandidate c) return;
 
+        Feedback.Text = "已选择城市，保存后生效。";
         _picked = c;
         CityBox.Text = c.Name;
         LatBox.Text = c.Lat.ToString("0.####", CultureInfo.InvariantCulture);
         LonBox.Text = c.Lon.ToString("0.####", CultureInfo.InvariantCulture);
     }
 
-    private void OnDragWindow(object? sender, PointerPressedEventArgs e)
-    {
-        // 只拖空白处；按钮、输入框已经处理过的就别抢
-        if (e.Handled) return;
-        if (e.Source is Button or TextBox or ComboBox or ListBox or ScrollViewer) return;
-        if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) BeginMoveDrag(e);
-    }
-
     private void OnSave(object? sender, RoutedEventArgs e)
     {
+        if ((!string.IsNullOrWhiteSpace(LatBox.Text) && (!TryNumber(LatBox.Text, out var la) || !double.IsFinite(la) || Math.Abs(la) > 90)) ||
+            (!string.IsNullOrWhiteSpace(LonBox.Text) && (!TryNumber(LonBox.Text, out var lo) || !double.IsFinite(lo) || Math.Abs(lo) > 180)))
+        { Feedback.Text = "纬度应在 −90 到 90 之间，经度应在 −180 到 180 之间。"; Feedback.BringIntoView(); return; }
+        if (!string.IsNullOrWhiteSpace(CdNameBox.Text) && !DateTime.TryParseExact(CdDateBox.Text?.Trim(), "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out _))
+        { Feedback.Text = "请填写有效的倒计时日期，格式为 yyyy-MM-dd。"; Feedback.BringIntoView(); return; }
         var s = new AppSettings
         {
             City = (CityBox.Text ?? "").Trim(),

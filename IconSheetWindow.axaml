@@ -3,13 +3,13 @@
         x:Class="NightBoard.IconSheetWindow"
         Title="图标预览"
         Width="760"
-        SizeToContent="Height"
-        Background="#0C0B09"
-        SystemDecorations="None"
-        CanResize="False"
-        WindowStartupLocation="CenterScreen">
-  <Border CornerRadius="14" Background="#0C0B09" BorderBrush="#2A2723" BorderThickness="1"
+        Height="540"
+
+        SystemDecorations="Full" ShowInTaskbar="False"
+        CanResize="True"
+        WindowStartupLocation="CenterOwner">
+  <Border
           ClipToBounds="True">
-    <WrapPanel x:Name="Sheet" Margin="14"/>
+    <Grid Margin="20" RowDefinitions="Auto,*"><TextBlock Text="天气图标" FontSize="20" Margin="0,0,0,12"/><ScrollViewer Grid.Row="1"><WrapPanel x:Name="Sheet"/></ScrollViewer></Grid>
   </Border>
 </Window>

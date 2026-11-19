@@ -5,31 +5,28 @@
         Width="620"
         SizeToContent="Height"
         Background="Transparent"
-        Foreground="#E6DCC8"
+
         FontFamily="{StaticResource FontUi}"
         FontSize="14"
-        SystemDecorations="None"
-        CanResize="False"
-        WindowStartupLocation="Manual"
+        SystemDecorations="Full" ShowInTaskbar="False"
+        CanResize="True"
+        WindowStartupLocation="CenterOwner"
         Focusable="True">
 
   <Window.Styles>
     <Style Selector="Button">
-      <Setter Property="Background" Value="#1B1815"/>
-      <Setter Property="Foreground" Value="#D8CFBB"/>
-      <Setter Property="BorderBrush" Value="#2A2723"/>
-      <Setter Property="BorderThickness" Value="1"/>
-      <Setter Property="CornerRadius" Value="3"/>
+            <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="7"/>
       <Setter Property="Padding" Value="20,8"/>
       <Setter Property="FontSize" Value="14"/>
     </Style>
   </Window.Styles>
 
-  <Border CornerRadius="14" Background="#0C0B09" BorderBrush="#2A2723" BorderThickness="1"
+  <Border
           ClipToBounds="True">
   <Grid Margin="30,24" RowDefinitions="Auto,*,Auto">
 
-    <TextBlock Grid.Row="0" Text="气象预警" FontSize="20" Foreground="#F4EBD8"
+    <TextBlock Grid.Row="0" Text="气象预警" FontSize="20"
                FontFamily="{StaticResource FontMedium}" LetterSpacing="2" Margin="0,0,0,16"/>
 
     <ScrollViewer Grid.Row="1" MaxHeight="560" VerticalScrollBarVisibility="Auto">
