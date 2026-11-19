@@ -167,6 +167,24 @@ public partial class MainWindow : Window
                 if (al is { Count: > 0 }) new AlertWindow(al).ShowDialog(this);
             }, TimeSpan.FromSeconds(2));
 
+        // 调试用：直接弹退出确认
+        if (Environment.GetEnvironmentVariable("NB_EXIT") == "1")
+            DispatcherTimer.RunOnce(ConfirmExit, TimeSpan.FromSeconds(1.6));
+
+        // 调试用：用假数据看一眼预警详情的样子
+        if (Environment.GetEnvironmentVariable("NB_ALERTDEMO") == "1")
+            DispatcherTimer.RunOnce(() =>
+            {
+                var demo = new List<WeatherAlert>
+                {
+                    new("哈尔滨市气象台发布暴雪橙色预警", "暴雪", "橙色",
+                        "预计未来 6 小时内降雪量将达 10 毫米以上，可能对交通或者农牧业有较大影响。请有关单位和个人注意做好预防工作。", DateTime.Now.AddHours(-1)),
+                    new("大风蓝色预警信号", "大风", "蓝色",
+                        "预计今天夜间到明天白天，平均风力可达 5 级以上，阵风 7 级。请注意防范。", DateTime.Now.AddHours(-3)),
+                };
+                new AlertWindow(demo).ShowDialog(this);
+            }, TimeSpan.FromSeconds(2));
+
         // 调试用：直接弹设置页
         if (Environment.GetEnvironmentVariable("NB_SETTINGS") == "1")
             DispatcherTimer.RunOnce(OpenSettings, TimeSpan.FromSeconds(1.5));
@@ -1117,6 +1135,7 @@ public partial class MainWindow : Window
             ShowInTaskbar = false,
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
             FontFamily = FontUi,
+            RequestedThemeVariant = Palette.IsLight ? Avalonia.Styling.ThemeVariant.Light : Avalonia.Styling.ThemeVariant.Dark,
             Content = card,
             Topmost = Topmost,
         };
