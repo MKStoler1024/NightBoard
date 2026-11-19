@@ -1,0 +1,132 @@
+﻿<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:svc="using:NightBoard.Services"
+        x:Class="NightBoard.SettingsWindow"
+        Title="夜板 · 设置"
+        Width="560"
+        SizeToContent="Height"
+        Background="Transparent"
+        Foreground="#E6DCC8"
+        FontFamily="{StaticResource FontUi}"
+        FontSize="14"
+        SystemDecorations="None"
+        CanResize="False"
+        WindowStartupLocation="Manual"
+        Focusable="True">
+
+  <Window.Styles>
+    <Style Selector="TextBlock.label">
+      <Setter Property="Foreground" Value="#7D7364"/>
+      <Setter Property="FontSize" Value="13"/>
+      <Setter Property="Margin" Value="0,0,0,6"/>
+      <Setter Property="LetterSpacing" Value="1"/>
+    </Style>
+    <Style Selector="TextBlock.hint">
+      <Setter Property="Foreground" Value="#4A443A"/>
+      <Setter Property="FontSize" Value="12"/>
+      <Setter Property="TextWrapping" Value="Wrap"/>
+    </Style>
+    <Style Selector="TextBox">
+      <Setter Property="Background" Value="#161411"/>
+      <Setter Property="Foreground" Value="#E6DCC8"/>
+      <Setter Property="BorderBrush" Value="#2A2723"/>
+      <Setter Property="CornerRadius" Value="3"/>
+      <Setter Property="Padding" Value="10,8"/>
+      <Setter Property="FontSize" Value="14"/>
+      <Setter Property="CaretBrush" Value="#E0B65C"/>
+    </Style>
+    <Style Selector="ComboBox">
+      <Setter Property="Background" Value="#161411"/>
+      <Setter Property="Foreground" Value="#E6DCC8"/>
+      <Setter Property="BorderBrush" Value="#2A2723"/>
+      <Setter Property="CornerRadius" Value="3"/>
+      <Setter Property="Padding" Value="10,6"/>
+      <Setter Property="FontSize" Value="14"/>
+    </Style>
+    <Style Selector="Button">
+      <Setter Property="Background" Value="#1B1815"/>
+      <Setter Property="Foreground" Value="#D8CFBB"/>
+      <Setter Property="BorderBrush" Value="#2A2723"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="3"/>
+      <Setter Property="Padding" Value="20,8"/>
+      <Setter Property="FontSize" Value="14"/>
+    </Style>
+    <Style Selector="Button.accent">
+      <Setter Property="Background" Value="#2A2318"/>
+      <Setter Property="Foreground" Value="#E0B65C"/>
+      <Setter Property="BorderBrush" Value="#4A3D22"/>
+    </Style>
+  </Window.Styles>
+
+  <Border CornerRadius="14" Background="#0C0B09" BorderBrush="#2A2723" BorderThickness="1"
+          ClipToBounds="True">
+  <Grid Margin="30,26" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
+
+    <TextBlock Grid.Row="0" Text="设置" FontSize="20" Foreground="#F4EBD8"
+               FontFamily="{StaticResource FontMedium}" LetterSpacing="2" Margin="0,0,0,22"/>
+
+    <StackPanel Grid.Row="1" Margin="0,0,0,14">
+      <TextBlock Classes="label" Text="天气城市"/>
+      <Grid ColumnDefinitions="*,10,Auto">
+        <TextBox x:Name="CityBox" Grid.Column="0" Watermark="输入城市名，回车或点搜索"/>
+        <Button x:Name="SearchButton" Grid.Column="2" Content="搜索" Click="OnSearchCity"/>
+      </Grid>
+      <ListBox x:Name="CityList" MaxHeight="126" Margin="0,8,0,0" IsVisible="False"
+               Background="#12100E" BorderBrush="#2A2723" SelectionChanged="OnCityPicked">
+        <ListBox.ItemTemplate>
+          <DataTemplate x:DataType="svc:CityCandidate">
+            <TextBlock Text="{Binding Label}" FontSize="13" Foreground="#C8BFAC"/>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+      <TextBlock Classes="hint" Margin="0,8,0,0" Background="#0C0B09"
+                 Text="搜到后点一条，经纬度和城市编号会一起填进来。留空则保持当前城市。"/>
+    </StackPanel>
+
+    <Grid Grid.Row="2" ColumnDefinitions="*,16,*" Margin="0,0,0,16">
+      <StackPanel Grid.Column="0">
+        <TextBlock Classes="label" Text="纬度（°N）"/>
+        <TextBox x:Name="LatBox" Watermark="45.666"/>
+      </StackPanel>
+      <StackPanel Grid.Column="2">
+        <TextBlock Classes="label" Text="经度（°E）"/>
+        <TextBox x:Name="LonBox" Watermark="126.59"/>
+      </StackPanel>
+    </Grid>
+
+    <TextBlock Grid.Row="3" Classes="hint" Margin="0,0,0,16"
+               Text="经纬度留空就按城市查。填了以你填的为准，用于计算日轨图和月亮位置。"/>
+
+    <StackPanel Grid.Row="4" Margin="0,0,0,18">
+      <TextBlock Classes="label" Text="主题"/>
+      <ComboBox x:Name="ThemeBox" HorizontalAlignment="Stretch">
+        <ComboBoxItem Content="跟随日出日落"/>
+        <ComboBoxItem Content="始终深色"/>
+        <ComboBoxItem Content="始终浅色"/>
+      </ComboBox>
+    </StackPanel>
+
+    <StackPanel Grid.Row="5" Margin="0,0,0,16">
+      <TextBlock Classes="label" Text="倒计时"/>
+      <Grid ColumnDefinitions="*,12,*">
+        <TextBox x:Name="CdNameBox" Grid.Column="0" Watermark="名称，例如：春节"/>
+        <TextBox x:Name="CdDateBox" Grid.Column="2" Watermark="日期 2027-02-06"/>
+      </Grid>
+      <TextBlock Classes="hint" Margin="0,6,0,0"
+                 Text="名称留空就不显示。日期写 yyyy-MM-dd。"/>
+    </StackPanel>
+
+    <TextBlock Grid.Row="6" Classes="hint"
+               Text="按 S 打开这一页，Esc 关闭；保存后立刻生效。"/>
+
+    <StackPanel Grid.Row="7" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10">
+      <Button x:Name="CancelButton" Content="取消" Click="OnCancel"/>
+      <Button x:Name="SaveButton" Content="保存" Click="OnSave"
+              Background="#2A2318" Foreground="#E0B65C" BorderBrush="#4A3D22"/>
+    </StackPanel>
+
+  </Grid>
+  </Border>
+</Window>
+

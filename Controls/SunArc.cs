@@ -1,0 +1,379 @@
+using System;
+using System.Collections.Generic;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Media;
+using NightBoard.Services;
+
+namespace NightBoard.Controls;
+
+/// <summary>
+/// 日轨图：横轴一整天（0–24 时），纵轴是地平高度。
+///
+/// 曲线不是画出来的装饰——每一格都是按当前城市的经纬度和当地时间算出来的：
+/// 太阳走低精度天文公式，月亮用月球黄经黄纬的主项。
+/// 所以冬天太阳拱得低、夏天拱得高；月亮每天晚升约五十分钟，图上看得见。
+///
+/// 拿到经纬度之前（刚启动、或断网没有城市缓存）退回一天一条正弦的近似，
+/// 位置仍是准的，只是峰高按半日正弦估。
+/// </summary>
+public class SunArc : Control
+{
+    public static readonly StyledProperty<DateTime> RiseProperty =
+        AvaloniaProperty.Register<SunArc, DateTime>(nameof(Rise));
+
+    public static readonly StyledProperty<DateTime> SetProperty =
+        AvaloniaProperty.Register<SunArc, DateTime>(nameof(Set));
+
+    public static readonly StyledProperty<DateTime> NowProperty =
+        AvaloniaProperty.Register<SunArc, DateTime>(nameof(Now));
+
+    public static readonly StyledProperty<string> CaptionProperty =
+        AvaloniaProperty.Register<SunArc, string>(nameof(Caption), "");
+
+    static SunArc()
+    {
+        AffectsRender<SunArc>(RiseProperty, SetProperty, NowProperty, CaptionProperty);
+    }
+
+    public SunArc()
+    {
+        ClipToBounds = true;
+    }
+
+    public DateTime Rise { get => GetValue(RiseProperty); set => SetValue(RiseProperty, value); }
+    public DateTime Set { get => GetValue(SetProperty); set => SetValue(SetProperty, value); }
+    public DateTime Now { get => GetValue(NowProperty); set => SetValue(NowProperty, value); }
+    public string Caption { get => GetValue(CaptionProperty); set => SetValue(CaptionProperty, value); }
+
+    /// <summary>一天 24 小时、每 0.1 时一个点的地平高度（°）。</summary>
+    private const int Steps = 241;
+
+    private static void FillAltitudes(double lat, double lon, DateTime day, bool geo,
+        DateTime rise, DateTime set, double[] sun, double[] moon)
+    {
+        double riseH = rise.TimeOfDay.TotalHours;
+        double dayHours = (set - rise).TotalHours;
+        if (dayHours <= 0.1 || dayHours >= 23.9) dayHours = 12;
+
+        for (int i = 0; i < Steps; i++)
+        {
+            var t = day.AddHours(i * 0.1);
+            if (geo)
+            {
+                sun[i] = Astro.SunAltitude(t, lat, lon);
+                moon[i] = Astro.MoonAltitude(t, lat, lon);
+            }
+            else
+            {
+                double hour = i * 0.1;
+                sun[i] = 60 * SineAltitude(hour, riseH, dayHours);
+                // 近似：按朔望月推月升，可见 12.4 时
+                double phase = Astro.MoonIllumination(t);
+                moon[i] = 60 * SineAltitude(hour, riseH + phase * 12, 12.4);
+            }
+        }
+    }
+
+    /// <summary>正午在天顶、夜半在地底的近似高度（-1…1）。</summary>
+    private static double SineAltitude(double hourOfDay, double riseHour, double visibleHours)
+    {
+        double d = hourOfDay - riseHour;
+        while (d < 0) d += 24;
+        while (d >= 24) d -= 24;
+
+        if (d <= visibleHours) return Math.Sin(Math.PI * d / visibleHours);
+        return -Math.Sin(Math.PI * (d - visibleHours) / (24 - visibleHours));
+    }
+
+    public override void Render(DrawingContext ctx)
+    {
+        double w = Bounds.Width, h = Bounds.Height;
+        if (w < 160 || h < 120) return;
+
+        bool light = Palette.IsLight;
+        var lineColor = light ? Color.Parse("#A79E8E") : Color.Parse("#4A443A");
+        var gridColor = light ? Color.Parse("#C9C2B4") : Color.Parse("#2A2723");
+        var textColor = light ? Color.Parse("#6B6459") : Color.Parse("#8A8071");
+        var sunColor = light ? Color.Parse("#C08A1E") : Color.Parse("#E0B65C");
+        var sunGlow = light ? Color.Parse("#F0DDB0") : Color.Parse("#8A7438");
+        var moonColor = light ? Color.Parse("#6B7787") : Color.Parse("#9AA9BC");
+        var moonGlow = light ? Color.Parse("#C8D2DE") : Color.Parse("#4E5967");
+
+        double padL = 14, padR = 14, padT = 34, padB = 30;
+        double plotW = w - padL - padR;
+        double plotH = h - padT - padB;
+        if (plotW < 80 || plotH < 40) return;
+
+        double baseY = padT + plotH * 0.52;
+        double amp = plotH * 0.44;
+        double X(double hour) => padL + plotW * (hour / 24.0);
+
+        var now = Now == DateTime.MinValue ? DateTime.Now : Now;
+        double nowH = now.TimeOfDay.TotalHours;
+        var day = now.Date;
+
+        // ---------------- 采样 ----------------
+        double lat = WeatherService.Latitude, lon = WeatherService.Longitude;
+        bool geo = !double.IsNaN(lat) && !double.IsNaN(lon);
+
+        var sun = new double[Steps];
+        var moon = new double[Steps];
+        FillAltitudes(geo ? lat : 0, geo ? lon : 0, day, geo, Rise, Set, sun, moon);
+
+        // 纵轴固定一格 32°：日出日落压在地平线上，正午能顶到大半高。
+        // 深夜太阳落到 -60°，不必为了把它塞进画面而压扁整条曲线——
+        // 出界就让它出界，画到边上为止。
+        const double FullScale = 32;
+        const double MinShown = -33, MaxShown = 54;
+
+        double scale = amp / FullScale;
+        double Y(double alt) => baseY - alt * scale;
+
+        // ---------------- 网格与刻度 ----------------
+        double[] ticks = { 0, 4, 8, 12, 16, 20, 24 };
+        var gridPen = new Pen(new SolidColorBrush(gridColor, light ? 0.55 : 0.45), 1);
+
+        foreach (double t in ticks)
+        {
+            double x = X(t);
+            if (t > 0 && t < 24)
+                ctx.DrawLine(gridPen, new Point(x, padT), new Point(x, padT + plotH));
+
+            string label = ((int)(t % 24)).ToString();
+            var tb = Text(label, 13.5, textColor);
+            ctx.DrawText(tb, new Point(x - tb.Width / 2, h - padB + 8));
+        }
+
+        // 地平线以下的"地下"遮罩：夜间用浅色、日间用深色，正好反过来。
+        // 从上往下渐淡，免得成一块生硬的灰板。
+        byte top = light ? (byte)0x14 : (byte)0x12;
+        var veil = light
+            ? new LinearGradientBrush
+            {
+                StartPoint = new RelativePoint(0, 0, RelativeUnit.Relative),
+                EndPoint = new RelativePoint(0, 1, RelativeUnit.Relative),
+                GradientStops =
+                {
+                    new GradientStop(Color.FromArgb(top, 0, 0, 0), 0),
+                    new GradientStop(Color.FromArgb(0x02, 0, 0, 0), 1),
+                },
+            }
+            : new LinearGradientBrush
+            {
+                StartPoint = new RelativePoint(0, 0, RelativeUnit.Relative),
+                EndPoint = new RelativePoint(0, 1, RelativeUnit.Relative),
+                GradientStops =
+                {
+                    new GradientStop(Color.FromArgb(top, 0xFF, 0xFF, 0xFF), 0),
+                    new GradientStop(Color.FromArgb(0x02, 0xFF, 0xFF, 0xFF), 1),
+                },
+            };
+
+        ctx.FillRectangle(veil, new Rect(padL, baseY, plotW, padT + plotH - baseY));
+
+        // 地平线
+        ctx.DrawLine(new Pen(new SolidColorBrush(lineColor, 0.8), 1.2),
+            new Point(padL, baseY), new Point(padL + plotW, baseY));
+
+        // 地平线右端的"水平"字样去掉了：月亮贴着地平线时会被它压住，
+        // 地平线本身加上下遮罩已经够说明问题了
+
+        // ---------------- 顶部说明 ----------------
+        if (!string.IsNullOrEmpty(Caption))
+        {
+            var cap = Text(Caption, 15, light ? Color.Parse("#4A443A") : Color.Parse("#B7AC97"), medium: true);
+            ctx.DrawText(cap, new Point(X(12) - cap.Width / 2, padT - cap.Height - 10));
+        }
+
+        // ---------------- 曲线 ----------------
+        var sunPts = new List<(double x, double alt)>(Steps);
+        var moonPts = new List<(double x, double alt)>(Steps);
+        for (int i = 0; i < Steps; i++)
+        {
+            sunPts.Add((X(i * 0.1), sun[i]));
+            moonPts.Add((X(i * 0.1), moon[i]));
+        }
+
+        // ---------------- 现在的位置 ----------------
+        double nowX = X(nowH);
+        double sunAlt = geo ? Astro.SunAltitude(now, lat, lon) : sun[(int)Math.Round(nowH * 10)];
+        double moonAlt = geo ? Astro.MoonAltitude(now, lat, lon) : moon[(int)Math.Round(nowH * 10)];
+
+        var sunPt = new Point(nowX, Y(sunAlt));
+        var moonPt = new Point(nowX, Y(moonAlt));
+
+        // 天体周围留空：曲线和"现在"那条竖线都给它们让开，免得像穿在线上
+        var holes = new List<(Point Center, double Radius)>
+        {
+            (sunPt, 14),
+            (moonPt, 14),
+        };
+
+        // 整条画淡的，地平线以上再压一遍加粗
+        DrawCurve(ctx, sunPts, new Pen(new SolidColorBrush(sunColor, light ? 0.34 : 0.28), 1.8),
+            Y, MinShown, MaxShown, null, holes);
+        DrawCurve(ctx, sunPts, new Pen(new SolidColorBrush(sunColor, light ? 0.95 : 1.0), 3.2,
+            lineCap: PenLineCap.Round), Y, MinShown, MaxShown, true, holes);
+
+        DrawCurve(ctx, moonPts, new Pen(new SolidColorBrush(moonColor, light ? 0.28 : 0.24), 1.6),
+            Y, MinShown, MaxShown, null, holes);
+        DrawCurve(ctx, moonPts, new Pen(new SolidColorBrush(moonColor, light ? 0.72 : 0.66), 2.6,
+            lineCap: PenLineCap.Round), Y, MinShown, MaxShown, true, holes);
+
+        // 竖直的"现在"线，同样在两天体处断开
+        var nowPen = new Pen(new SolidColorBrush(lineColor, 0.45), 1);
+        DrawVerticalWithHoles(ctx, nowX, padT, padT + plotH, holes, nowPen);
+
+        // 太阳
+        ctx.DrawEllipse(new SolidColorBrush(sunGlow, sunAlt > 0 ? 0.26 : 0.12), null, sunPt, 20, 20);
+        ctx.DrawEllipse(new SolidColorBrush(sunColor, sunAlt > 0 ? 1.0 : 0.78), null, sunPt, 9.4, 9.4);
+
+        // 月亮：按真实相位画亮面，再点几处环形山
+        double phase = Astro.MoonPhase(now);
+        ctx.DrawEllipse(new SolidColorBrush(moonGlow, moonAlt > 0 ? 0.14 : 0.07), null, moonPt, 20, 20);
+        DrawMoonDisc(ctx, moonPt, 11.6, phase,
+            new SolidColorBrush(moonColor, moonAlt > 0 ? 0.98 : 0.82));
+    }
+
+    /// <summary>画一条曲线。above = true 时只画地平线以上那段。</summary>
+    private static void DrawCurve(DrawingContext ctx, List<(double x, double alt)> pts, Pen pen,
+        Func<double, double> y, double minAlt, double maxAlt, bool? above = null,
+        List<(Point Center, double Radius)>? holes = null)
+    {
+        var geo = new StreamGeometry();
+        bool open = false;
+        using (var g = geo.Open())
+        {
+            foreach (var (px, alt) in pts)
+            {
+                var probe = new Point(px, y(alt));
+
+                bool blocked = false;
+                if (holes != null)
+                {
+                    foreach (var (c, r) in holes)
+                    {
+                        double dx = probe.X - c.X, dy = probe.Y - c.Y;
+                        if (dx * dx + dy * dy < r * r) { blocked = true; break; }
+                    }
+                }
+
+                bool inside = !blocked && alt >= minAlt && alt <= maxAlt && (above == null || alt >= 0);
+                if (!inside)
+                {
+                    if (open) { g.EndFigure(false); open = false; }
+                    continue;
+                }
+
+                var p = new Point(px, y(alt));
+                if (!open) { g.BeginFigure(p, false); open = true; }
+                else g.LineTo(p);
+            }
+            if (open) g.EndFigure(false);
+        }
+        ctx.DrawGeometry(null, pen, geo);
+    }
+
+    /// <summary>
+    /// 月面：按真实相位画。
+    ///
+    /// phase：0 新月、0.25 上弦、0.5 满月、0.75 下弦。
+    /// 形状用一条"明暗分界线"定：它是半宽 r·|cosθ| 的椭圆，
+    /// θ 从 0（新月）走到 π（满月）。θ 小于 π/2 时分界线往暗侧凹，成了月牙；
+    /// 大于 π/2 时往亮侧凸，成了凸月。盈月亮右，亏月镜像到左。
+    /// </summary>
+    private static void DrawMoonDisc(DrawingContext ctx, Point c, double r, double phase, IBrush lit)
+    {
+        double t = phase <= 0.5 ? phase : 1 - phase;   // 0…0.5
+        double theta = 2 * Math.PI * t;
+        double k = Math.Cos(theta);                    // 1 = 新月，-1 = 满月
+        double flip = phase <= 0.5 ? 1 : -1;           // 盈月亮右，亏月亮左
+
+        // 暗面：整圆，压得很淡，只留轮廓
+        ctx.DrawEllipse(new SolidColorBrush(Colors.Black, 0.16), null, c, r, r);
+        ctx.DrawEllipse(null, new Pen(new SolidColorBrush(Colors.White, 0.10), 1), c, r, r);
+
+        var pts = new List<Point>(132);
+
+        for (int i = 0; i <= 64; i++)                  // 外圆右半：底下到顶上
+        {
+            double ang = -Math.PI / 2 + Math.PI * i / 64;
+            pts.Add(new Point(c.X + flip * r * Math.Cos(ang), c.Y + r * Math.Sin(ang)));
+        }
+
+        for (int i = 1; i <= 64; i++)                  // 明暗分界线：顶上回到底下
+        {
+            double phi = Math.PI / 2 - Math.PI * i / 64;
+            double x = k * r * Math.Cos(phi);
+            pts.Add(new Point(c.X + flip * x, c.Y + r * Math.Sin(phi)));
+        }
+
+        var geo = new StreamGeometry();
+        using (var g = geo.Open())
+        {
+            g.BeginFigure(pts[0], true);
+            for (int i = 1; i < pts.Count; i++) g.LineTo(pts[i]);
+            g.EndFigure(true);
+        }
+        ctx.DrawGeometry(lit, null, geo);
+
+        // 环形山：几个固定斑点，只落在亮面上
+        var shade = new SolidColorBrush(Palette.Bg, 0.32);
+        (double X, double Y, double R)[] craters =
+        {
+            (-0.30, -0.20, 0.20),
+            (0.16, 0.30, 0.15),
+            (0.34, -0.36, 0.12),
+            (-0.06, -0.52, 0.10),
+            (0.44, 0.10, 0.09),
+            (-0.40, 0.28, 0.08),
+        };
+
+        foreach (var (cx, cy, cr) in craters)
+        {
+            double x = cx * r, y = cy * r;
+            if (!IsLit(x, y, r, k)) continue;
+            ctx.DrawEllipse(shade, null, new Point(c.X + flip * x, c.Y + y), cr * r, cr * r);
+        }
+    }
+
+    /// <summary>某点是否落在亮面上（+x 指向亮侧）。</summary>
+    private static bool IsLit(double x, double y, double r, double k)
+    {
+        if (x * x + y * y > r * r) return false;
+
+        double half = Math.Sqrt(Math.Max(0, r * r - y * y));
+        return x >= k * half;
+    }
+
+    private static void DrawVerticalWithHoles(DrawingContext ctx, double x, double y0, double y1,
+        List<(Point Center, double Radius)> holes, Pen pen)
+    {
+        var spans = new List<(double A, double B)>();
+        foreach (var (c, r) in holes)
+        {
+            double dx = Math.Abs(c.X - x);
+            if (dx >= r) continue;
+            double half = Math.Sqrt(r * r - dx * dx);
+            spans.Add((c.Y - half, c.Y + half));
+        }
+
+        spans.Sort((p, q) => p.A.CompareTo(q.A));
+
+        double cursor = y0;
+        foreach (var (a, b) in spans)
+        {
+            if (b <= cursor) continue;
+            if (a > cursor) ctx.DrawLine(pen, new Point(x, cursor), new Point(x, Math.Min(a, y1)));
+            cursor = Math.Max(cursor, b);
+            if (cursor >= y1) break;
+        }
+        if (cursor < y1) ctx.DrawLine(pen, new Point(x, cursor), new Point(x, y1));
+    }
+
+    private static FormattedText Text(string s, double size, Color color, bool medium = false)
+        => new(s, System.Globalization.CultureInfo.CurrentCulture, FlowDirection.LeftToRight,
+            new Typeface(medium ? "HarmonyOS Sans SC Medium" : "HarmonyOS Sans SC"),
+            size, new SolidColorBrush(color));
+}

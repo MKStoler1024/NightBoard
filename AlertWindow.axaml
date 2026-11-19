@@ -1,0 +1,43 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="NightBoard.AlertWindow"
+        Title="气象预警"
+        Width="620"
+        SizeToContent="Height"
+        Background="Transparent"
+        Foreground="#E6DCC8"
+        FontFamily="{StaticResource FontUi}"
+        FontSize="14"
+        SystemDecorations="None"
+        CanResize="False"
+        WindowStartupLocation="Manual"
+        Focusable="True">
+
+  <Window.Styles>
+    <Style Selector="Button">
+      <Setter Property="Background" Value="#1B1815"/>
+      <Setter Property="Foreground" Value="#D8CFBB"/>
+      <Setter Property="BorderBrush" Value="#2A2723"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="3"/>
+      <Setter Property="Padding" Value="20,8"/>
+      <Setter Property="FontSize" Value="14"/>
+    </Style>
+  </Window.Styles>
+
+  <Border CornerRadius="14" Background="#0C0B09" BorderBrush="#2A2723" BorderThickness="1"
+          ClipToBounds="True">
+  <Grid Margin="30,24" RowDefinitions="Auto,*,Auto">
+
+    <TextBlock Grid.Row="0" Text="气象预警" FontSize="20" Foreground="#F4EBD8"
+               FontFamily="{StaticResource FontMedium}" LetterSpacing="2" Margin="0,0,0,16"/>
+
+    <ScrollViewer Grid.Row="1" MaxHeight="560" VerticalScrollBarVisibility="Auto">
+      <StackPanel x:Name="List" Spacing="20"/>
+    </ScrollViewer>
+
+    <Button Grid.Row="2" Content="关闭" HorizontalAlignment="Right" Margin="0,18,0,0"
+            Click="OnClose"/>
+  </Grid>
+  </Border>
+</Window>

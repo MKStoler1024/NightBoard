@@ -1,0 +1,15 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="NightBoard.IconSheetWindow"
+        Title="图标预览"
+        Width="760"
+        SizeToContent="Height"
+        Background="#0C0B09"
+        SystemDecorations="None"
+        CanResize="False"
+        WindowStartupLocation="CenterScreen">
+  <Border CornerRadius="14" Background="#0C0B09" BorderBrush="#2A2723" BorderThickness="1"
+          ClipToBounds="True">
+    <WrapPanel x:Name="Sheet" Margin="14"/>
+  </Border>
+</Window>

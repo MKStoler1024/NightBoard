@@ -1,0 +1,20 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="NightBoard.App"
+             RequestedThemeVariant="Dark">
+
+  <Application.Resources>
+    <!-- 正文：HarmonyOS Sans SC（随程序嵌入，换机器不用装） -->
+    <FontFamily x:Key="FontUi">avares://NightBoard/Assets/Fonts#HarmonyOS Sans SC</FontFamily>
+    <FontFamily x:Key="FontLight">avares://NightBoard/Assets/Fonts#HarmonyOS Sans SC Light</FontFamily>
+    <FontFamily x:Key="FontMedium">avares://NightBoard/Assets/Fonts#HarmonyOS Sans SC Medium</FontFamily>
+
+    <!-- 时钟：DSEG7 七段数码管（SIL OFL 1.1） -->
+    <FontFamily x:Key="FontDigit">avares://NightBoard/Assets/Fonts#DSEG7 Classic</FontFamily>
+  </Application.Resources>
+
+  <Application.Styles>
+    <FluentTheme />
+  </Application.Styles>
+
+</Application>

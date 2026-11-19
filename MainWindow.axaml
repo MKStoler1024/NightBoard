@@ -1,0 +1,198 @@
+﻿<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ctl="using:NightBoard.Controls"
+        xmlns:s="using:Avalonia.Controls.Shapes"
+        x:Class="NightBoard.MainWindow"
+        Title="夜板"
+        Icon="/Assets/app.ico"
+        Background="#000000"
+        Foreground="#E6DCC8"
+        FontFamily="{StaticResource FontUi}"
+        FontSize="14"
+        SystemDecorations="None"
+        WindowStartupLocation="CenterScreen"
+        WindowState="FullScreen"
+        Focusable="True">
+
+  <Grid>
+    <Grid x:Name="Root" ColumnDefinitions="1.06*,1*" Margin="80,46,80,56">
+
+      <!-- ================= 左栏 ================= -->
+      <Grid Grid.Column="0" RowDefinitions="Auto,Auto,Auto,Auto,Auto,*,Auto,Auto">
+
+        <!-- 时钟：时 : 分，秒坠在右下。底下压一层"没点亮的段"，像真数码管 -->
+        <Grid Grid.Row="0">
+          <Grid VerticalAlignment="Bottom" HorizontalAlignment="Left">
+          <StackPanel Orientation="Horizontal" IsHitTestVisible="False">
+            <TextBlock x:Name="GhostH" Text="88"
+                       FontFamily="{StaticResource FontDigit}" Foreground="#191612"/>
+            <TextBlock x:Name="GhostColon" Text=":"
+                       FontFamily="{StaticResource FontDigit}" Foreground="#191612"
+                       VerticalAlignment="Bottom" Margin="8,0"/>
+            <TextBlock x:Name="GhostM" Text="88"
+                       FontFamily="{StaticResource FontDigit}" Foreground="#191612"/>
+            <TextBlock x:Name="GhostS" Text="88" Opacity="0.7"
+                       FontFamily="{StaticResource FontDigit}" Foreground="#191612"
+                       VerticalAlignment="Bottom" Margin="16,0,0,14"/>
+          </StackPanel>
+
+          <StackPanel Orientation="Horizontal">
+            <TextBlock x:Name="ClockH" Text="00"
+                       FontFamily="{StaticResource FontDigit}" Foreground="#F4EBD8"/>
+            <TextBlock x:Name="ClockColon" Text=":"
+                       FontFamily="{StaticResource FontDigit}" Foreground="#F4EBD8"
+                       VerticalAlignment="Bottom" Margin="8,0"/>
+            <TextBlock x:Name="ClockM" Text="00"
+                       FontFamily="{StaticResource FontDigit}" Foreground="#F4EBD8"/>
+            <TextBlock x:Name="ClockS" Text="00"
+                       FontFamily="{StaticResource FontDigit}" Foreground="#4A443A"
+                       VerticalAlignment="Bottom" Margin="16,0,0,14"/>
+          </StackPanel>
+          </Grid>
+
+        </Grid>
+
+        <!-- 公历 / 农历 + 下一事件 -->
+        <Grid Grid.Row="1" ColumnDefinitions="Auto,*">
+          <StackPanel Grid.Column="0">
+            <TextBlock x:Name="DateLine" Text="—" Foreground="#7D7364" LetterSpacing="3"/>
+            <TextBlock x:Name="LunarLine" Text=" " Foreground="#4A443A" LetterSpacing="2"/>
+          </StackPanel>
+
+          <Border x:Name="EventCard" Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Center"
+                  BorderThickness="1" CornerRadius="9"
+                  Padding="14,7" IsVisible="False">
+            <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+              <TextBlock x:Name="EvLabel" Text="下一事件" LetterSpacing="2" VerticalAlignment="Center"/>
+              <TextBlock x:Name="EvTime" Text=" " VerticalAlignment="Center"/>
+              <TextBlock x:Name="EvTitle" Text=" " VerticalAlignment="Center"
+                         TextTrimming="CharacterEllipsis" MaxWidth="220"/>
+              <TextBlock x:Name="EvWhen" Text=" " VerticalAlignment="Center"/>
+            </StackPanel>
+          </Border>
+        </Grid>
+
+        <!-- 实时天气：左边图标＋温度，右边细目 -->
+        <Grid x:Name="WeatherBlock" Grid.Row="2" Margin="0,20,0,0" Background="Transparent"
+              ColumnDefinitions="Auto,*,Auto">
+
+          <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+            <ctl:WeatherIcon x:Name="WxIcon" Width="76" Height="76" VerticalAlignment="Center"/>
+            <TextBlock x:Name="WxTemp" Text="—" Foreground="#F4EBD8"
+                       VerticalAlignment="Center" Margin="16,0,0,0"/>
+            <TextBlock x:Name="WxText" Text=" " Foreground="#7D7364" LetterSpacing="2"
+                       VerticalAlignment="Center" Margin="14,10,0,0"/>
+          </StackPanel>
+
+          <Grid Grid.Column="2" VerticalAlignment="Center"
+                ColumnDefinitions="Auto,Auto,Auto,Auto" RowDefinitions="Auto,Auto,Auto,Auto">
+            <TextBlock Grid.Row="0" Grid.Column="0" Text="体感" Foreground="#4A443A" Margin="0,0,8,0"/>
+            <TextBlock Grid.Row="0" Grid.Column="1" x:Name="WxFeels" Text="—" Foreground="#7D7364" Margin="0,0,26,0"/>
+
+            <TextBlock Grid.Row="0" Grid.Column="2" Text="湿度" Foreground="#4A443A" Margin="0,0,8,0"/>
+            <TextBlock Grid.Row="0" Grid.Column="3" x:Name="WxHum" Text="—" Foreground="#7D7364"/>
+
+            <TextBlock Grid.Row="1" Grid.Column="0" Text="AQI" Foreground="#4A443A" Margin="0,8,8,0"/>
+            <TextBlock Grid.Row="1" Grid.Column="1" x:Name="WxAqi" Text="—" Foreground="#7D7364" Margin="0,8,26,0"/>
+
+            <TextBlock Grid.Row="1" Grid.Column="2" Text="风" Foreground="#4A443A" Margin="0,8,8,0"/>
+            <TextBlock Grid.Row="1" Grid.Column="3" x:Name="WxWind" Text="—" Foreground="#7D7364" Margin="0,8,0,0"/>
+
+            <TextBlock Grid.Row="2" Grid.Column="0" Text="月相" Foreground="#4A443A" Margin="0,8,8,0"/>
+            <TextBlock Grid.Row="2" Grid.Column="1" x:Name="WxMoon" Text="—" Foreground="#7D7364" Margin="0,8,26,0"/>
+
+            <TextBlock Grid.Row="2" Grid.Column="2" Text="位置" Foreground="#4A443A" Margin="0,8,8,0"/>
+            <TextBlock Grid.Row="2" Grid.Column="3" x:Name="WxCity" Text="—" Foreground="#7D7364" Margin="0,8,0,0"/>
+
+            <TextBlock Grid.Row="3" Grid.Column="0" Text="均温" Foreground="#4A443A" Margin="0,8,8,0"/>
+            <TextBlock Grid.Row="3" Grid.Column="1" x:Name="WxAvg" Text="—" Foreground="#7D7364" Margin="0,8,26,0"/>
+          </Grid>
+
+          <!-- 逐小时：塞进天气右边那点空处，左缘用渐变淡出 -->
+          <Grid Grid.Column="1" Margin="30,0,26,0" VerticalAlignment="Center">
+            <ScrollViewer x:Name="HourlyScroll"
+                          HorizontalScrollBarVisibility="Hidden"
+                          VerticalScrollBarVisibility="Disabled">
+              <ctl:HourlyChart x:Name="Hourly" Height="104"/>
+            </ScrollViewer>
+            <Border x:Name="HourlyFade" Width="42" HorizontalAlignment="Right"
+                    IsHitTestVisible="False"/>
+          </Grid>
+        </Grid>
+
+        <!-- 气象预警 -->
+        <StackPanel x:Name="AlertPanel" Grid.Row="3" Orientation="Horizontal"
+                    Margin="4,14,0,0" Background="Transparent"/>
+
+        <!-- 三日预报 -->
+        <TextBlock x:Name="DailyLine" Grid.Row="4" Text=" " Foreground="#7D7364"
+                   LetterSpacing="1" Margin="4,10,0,0" TextWrapping="Wrap"/>
+
+
+        <!-- 这一格：节日 / 节气 / 倒计时 一组，下面日月循行 -->
+        <Grid Grid.Row="5" RowDefinitions="Auto,*">
+
+          <StackPanel Grid.Row="0" Spacing="9" Margin="4,4,0,0">
+
+            <StackPanel x:Name="CountdownPanel" Orientation="Horizontal" Spacing="10">
+              <TextBlock x:Name="CdName" Text="倒计时" LetterSpacing="2"
+                         VerticalAlignment="Center"/>
+              <TextBlock x:Name="CdMid" Text="还有" LetterSpacing="1"
+                         VerticalAlignment="Center"/>
+              <TextBlock x:Name="CdValue" Text=" " LetterSpacing="1"
+                         VerticalAlignment="Center"/>
+              <TextBlock x:Name="CdUnit" Text="天" LetterSpacing="1"
+                         VerticalAlignment="Center"/>
+            </StackPanel>
+
+            <StackPanel Orientation="Horizontal" Spacing="9">
+              <TextBlock x:Name="FestLabel" Text="下个节日" LetterSpacing="1" VerticalAlignment="Center"/>
+              <TextBlock x:Name="FestName" Text="—" LetterSpacing="1" VerticalAlignment="Center"/>
+              <TextBlock x:Name="FestDate" Text=" " LetterSpacing="1" VerticalAlignment="Center"/>
+              <TextBlock x:Name="FestLeft" Text=" " LetterSpacing="1" VerticalAlignment="Center"/>
+            </StackPanel>
+
+            <StackPanel Orientation="Horizontal" Spacing="9">
+              <TextBlock x:Name="TermLabel" Text="下个节气" LetterSpacing="1" VerticalAlignment="Center"/>
+              <TextBlock x:Name="TermName" Text="—" LetterSpacing="1" VerticalAlignment="Center"/>
+              <TextBlock x:Name="TermDate" Text=" " LetterSpacing="1" VerticalAlignment="Center"/>
+              <TextBlock x:Name="TermLeft" Text=" " LetterSpacing="1" VerticalAlignment="Center"/>
+            </StackPanel>
+          </StackPanel>
+
+          <ctl:SunArc x:Name="Sun" Grid.Row="1" MinHeight="140"
+                      HorizontalAlignment="Center" VerticalAlignment="Center"
+                      Margin="0,10,0,0" Width="620" Height="206"/>
+        </Grid>
+
+        <!-- 状态行：AstrBot + 电量 -->
+        <StackPanel Grid.Row="6" Orientation="Horizontal" Margin="4,6,0,0">
+          <s:Ellipse x:Name="AbLed" Width="8" Height="8" Fill="#4A443A"
+                                           VerticalAlignment="Center" Margin="0,0,9,0"/>
+          <TextBlock x:Name="AbText" Text="AstrBot" Foreground="#7D7364" VerticalAlignment="Center"/>
+          <TextBlock x:Name="AbMeta" Text=" " Foreground="#4A443A" VerticalAlignment="Center" Margin="12,0,0,0"/>
+          <TextBlock x:Name="MetaSep" Text="·" Foreground="#2A2723" VerticalAlignment="Center" Margin="14,0"/>
+          <TextBlock x:Name="MetaBat" Text=" " Foreground="#7D7364" VerticalAlignment="Center"/>
+        </StackPanel>
+
+        <!-- 一言 -->
+        <StackPanel Grid.Row="7" Margin="0,12,0,0">
+          <Border x:Name="QuoteRule" Height="1" Background="#221F1A"
+                  HorizontalAlignment="Left" Width="150"/>
+          <TextBlock x:Name="QuoteText" Text=" " Foreground="#7D7364"
+                     LetterSpacing="2" TextWrapping="Wrap"/>
+          <TextBlock x:Name="QuoteFrom" Text=" " Foreground="#4A443A"
+                     LetterSpacing="2"/>
+        </StackPanel>
+
+      </Grid>
+
+      <!-- ================= 右栏：三条折线 ================= -->
+      <Grid Grid.Column="1" x:Name="ChartsHost"/>
+
+    </Grid>
+
+    <!-- 调暗层：盖住全屏，不影响命中 -->
+    <Border x:Name="DimLayer" Background="#000000" Opacity="0" IsHitTestVisible="False"/>
+  </Grid>
+</Window>
