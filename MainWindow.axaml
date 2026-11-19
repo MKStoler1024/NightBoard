@@ -1,4 +1,4 @@
-﻿<Window xmlns="https://github.com/avaloniaui"
+<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:ctl="using:NightBoard.Controls"
         xmlns:s="using:Avalonia.Controls.Shapes"
@@ -9,13 +9,13 @@
         Foreground="#E6DCC8"
         FontFamily="{StaticResource FontUi}"
         FontSize="14"
-        SystemDecorations="None"
+        SystemDecorations="Full" Width="1100" Height="690"
         WindowStartupLocation="CenterScreen"
         WindowState="FullScreen"
         Focusable="True">
 
-  <Grid>
-    <Grid x:Name="Root" ColumnDefinitions="1.06*,1*" Margin="80,46,80,56">
+  <Grid RowDefinitions="*,Auto,Auto">
+    <Grid ClipToBounds="True" x:Name="Root" ColumnDefinitions="1.06*,1*" Margin="80,46,80,56">
 
       <!-- ================= 左栏 ================= -->
       <Grid Grid.Column="0" RowDefinitions="Auto,Auto,Auto,Auto,Auto,*,Auto,Auto">
@@ -192,7 +192,15 @@
 
     </Grid>
 
+    <Border Grid.Row="1" x:Name="Footer" BorderThickness="0,1,0,0" Padding="20,5">
+      <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" Spacing="8">
+        <Button x:Name="ModeButton" Content="窗口化" ToolTip.Tip="切换全屏（F11）"/>
+        <Button x:Name="PrefsButton" Content="设置" ToolTip.Tip="设置（S）"/>
+        <Button x:Name="QuitButton" Content="退出" ToolTip.Tip="退出夜板（Ctrl+Q）"/>
+      </StackPanel>
+    </Border>
+    <Border Grid.Row="2" x:Name="SafeGap" Height="48" IsHitTestVisible="False"/>
     <!-- 调暗层：盖住全屏，不影响命中 -->
-    <Border x:Name="DimLayer" Background="#000000" Opacity="0" IsHitTestVisible="False"/>
+    <Border Grid.RowSpan="3" x:Name="DimLayer" Background="#000000" Opacity="0" IsHitTestVisible="False"/>
   </Grid>
 </Window>

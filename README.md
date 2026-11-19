@@ -185,7 +185,9 @@ dotnet publish -c Release -r win-x64 --self-contained false -p:PublishSingleFile
 | `A` | 恢复 / 暂停「跟随日出日落」 |
 | `-` / `+` | 整体调暗 / 调亮 |
 | `0` | 取消调暗 |
-| `Ctrl + Q` | 退出 |
+| `Ctrl + Q` | 确认退出 |
+
+右下角也可以直接切换全屏、打开设置或退出。全屏时操作栏下方保留任务栏安全区；窗口化时恢复系统标题栏。
 
 ## 命令行
 
