@@ -194,9 +194,9 @@
 
     <Border Grid.Row="1" x:Name="Footer" BorderThickness="0,1,0,0" Padding="20,5">
       <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" Spacing="8">
-        <Button x:Name="ModeButton" Content="窗口化" ToolTip.Tip="切换全屏（F11）"/>
-        <Button x:Name="PrefsButton" Content="设置" ToolTip.Tip="设置（S）"/>
-        <Button x:Name="QuitButton" Content="退出" ToolTip.Tip="退出夜板（Ctrl+Q）"/>
+        <Button Classes="board" x:Name="ModeButton" Content="窗口化" ToolTip.Tip="切换全屏（F11）"/>
+        <Button Classes="board" x:Name="PrefsButton" Content="设置" ToolTip.Tip="设置（S）"/>
+        <Button Classes="board quiet" x:Name="QuitButton" Content="退出" ToolTip.Tip="退出夜板（Ctrl+Q）"/>
       </StackPanel>
     </Border>
     <Border Grid.Row="2" x:Name="SafeGap" Height="48" IsHitTestVisible="False"/>

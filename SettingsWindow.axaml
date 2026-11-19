@@ -34,14 +34,6 @@
       <Setter Property="Padding" Value="10,6"/>
       <Setter Property="FontSize" Value="14"/>
     </Style>
-    <Style Selector="Button">
-            <Setter Property="BorderThickness" Value="1"/>
-      <Setter Property="CornerRadius" Value="7"/>
-      <Setter Property="Padding" Value="20,8"/>
-      <Setter Property="FontSize" Value="14"/>
-    </Style>
-    <Style Selector="Button.accent">
-          </Style>
   </Window.Styles>
 
   <Border
@@ -56,7 +48,7 @@
       <TextBlock Classes="label" Text="天气城市"/>
       <Grid ColumnDefinitions="*,10,Auto">
         <TextBox x:Name="CityBox" Grid.Column="0" Watermark="输入城市名，回车或点搜索"/>
-        <Button x:Name="SearchButton" Grid.Column="2" Content="搜索" Click="OnSearchCity"/>
+        <Button Classes="board" x:Name="SearchButton" Grid.Column="2" Content="搜索" Click="OnSearchCity"/>
       </Grid>
       <ListBox x:Name="CityList" MaxHeight="126" Margin="0,8,0,0" IsVisible="False"
                SelectionChanged="OnCityPicked">
@@ -108,8 +100,8 @@
 
     </Grid></ScrollViewer>
     <StackPanel Margin="0,12,0,0" Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10">
-      <Button x:Name="CancelButton" Content="取消" Click="OnCancel"/>
-      <Button x:Name="SaveButton" Content="保存" Click="OnSave"
+      <Button Classes="board quiet" x:Name="CancelButton" Content="取消" Click="OnCancel"/>
+      <Button Classes="board primary" x:Name="SaveButton" Content="保存" Click="OnSave"
              />
     </StackPanel>
 

@@ -1012,8 +1012,8 @@ public partial class MainWindow : Window
 
     private async void ConfirmExit()
     {
-        var stay = new Button { Content = "继续看板" };
-        var quit = new Button { Content = "退出夜板" };
+        var stay = new Button { Classes = { "board" }, Content = "继续看板" };
+        var quit = new Button { Classes = { "board", "quiet" }, Content = "退出夜板" };
         var actions = new StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal,
             HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right, Spacing = 8, Children = { stay, quit } };
         var dialog = new Window { Title = "夜板 · 退出", Icon = Icon, Width = 320, SizeToContent = SizeToContent.Height,

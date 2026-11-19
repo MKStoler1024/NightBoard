@@ -4,6 +4,25 @@
              RequestedThemeVariant="Dark">
 
   <Application.Resources>
+    <ResourceDictionary>
+    <ResourceDictionary.ThemeDictionaries>
+      <ResourceDictionary x:Key="Light">
+        <SolidColorBrush x:Key="BtnTone">#EDE6DA</SolidColorBrush>
+        <SolidColorBrush x:Key="BtnInk">#504536</SolidColorBrush>
+        <SolidColorBrush x:Key="BtnStrong">#705832</SolidColorBrush>
+        <SolidColorBrush x:Key="BtnOnStrong">#FFFFFF</SolidColorBrush>
+        <SolidColorBrush x:Key="BtnHover">#E1D7C6</SolidColorBrush>
+        <SolidColorBrush x:Key="BtnPress">#D7C9B4</SolidColorBrush>
+      </ResourceDictionary>
+      <ResourceDictionary x:Key="Dark">
+        <SolidColorBrush x:Key="BtnTone">#29251F</SolidColorBrush>
+        <SolidColorBrush x:Key="BtnInk">#D9CDB9</SolidColorBrush>
+        <SolidColorBrush x:Key="BtnStrong">#D2B78E</SolidColorBrush>
+        <SolidColorBrush x:Key="BtnOnStrong">#322715</SolidColorBrush>
+        <SolidColorBrush x:Key="BtnHover">#383228</SolidColorBrush>
+        <SolidColorBrush x:Key="BtnPress">#463C30</SolidColorBrush>
+      </ResourceDictionary>
+    </ResourceDictionary.ThemeDictionaries>
     <!-- 正文：HarmonyOS Sans SC（随程序嵌入，换机器不用装） -->
     <FontFamily x:Key="FontUi">avares://NightBoard/Assets/Fonts#HarmonyOS Sans SC</FontFamily>
     <FontFamily x:Key="FontLight">avares://NightBoard/Assets/Fonts#HarmonyOS Sans SC Light</FontFamily>
@@ -11,10 +30,36 @@
 
     <!-- 时钟：DSEG7 七段数码管（SIL OFL 1.1） -->
     <FontFamily x:Key="FontDigit">avares://NightBoard/Assets/Fonts#DSEG7 Classic</FontFamily>
+    </ResourceDictionary>
   </Application.Resources>
 
   <Application.Styles>
     <FluentTheme />
+    <Style Selector="Button.board">
+      <Setter Property="CornerRadius" Value="24"/>
+      <Setter Property="Padding" Value="16,5"/>
+      <Setter Property="MinHeight" Value="34"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="BorderBrush" Value="Transparent"/>
+      <Setter Property="Background" Value="{DynamicResource BtnTone}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BtnInk}"/>
+    </Style>
+    <Style Selector="Button.board.quiet"><Setter Property="Background" Value="Transparent"/></Style>
+    <Style Selector="Button.board.primary">
+      <Setter Property="Background" Value="{DynamicResource BtnStrong}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BtnOnStrong}"/>
+    </Style>
+    <Style Selector="Button.board:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource BtnHover}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BtnInk}"/>
+    </Style>
+    <Style Selector="Button.board:pressed /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource BtnPress}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BtnInk}"/>
+    </Style>
+    <Style Selector="Button.board:focus-visible /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="BorderBrush" Value="{DynamicResource BtnStrong}"/>
+    </Style>
   </Application.Styles>
 
 </Application>
