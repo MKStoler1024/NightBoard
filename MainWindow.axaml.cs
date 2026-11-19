@@ -126,6 +126,8 @@ public partial class MainWindow : Window
             e.Handled = true;
         };
 
+        Footer.PointerEntered += (_, _) => Footer.Opacity = 1;
+        Footer.PointerExited += (_, _) => Footer.Opacity = 0.62;
         ModeButton.Click += (_, _) => ToggleMode();
         PrefsButton.Click += (_, _) => OpenSettings();
         QuitButton.Click += (_, _) => ConfirmExit();
@@ -629,7 +631,7 @@ public partial class MainWindow : Window
         bool light = Palette.IsLight;
 
         RequestedThemeVariant = light ? Avalonia.Styling.ThemeVariant.Light : Avalonia.Styling.ThemeVariant.Dark;
-        Footer.BorderBrush = new SolidColorBrush(Palette.Line);
+        DialogAppearance.UseDarkTitleBar(this);
         Background = new SolidColorBrush(Palette.Bg);
         DimLayer.Background = new SolidColorBrush(Palette.Bg);
 
@@ -749,18 +751,24 @@ public partial class MainWindow : Window
     // ------------------------------------------------------------ 缩放
     private void ApplyScale()
     {
-        if (WindowState == WindowState.FullScreen)
-        {
-            var screen = Screens.ScreenFromWindow(this);
-            SafeGap.Height = screen is null ? 48 : Math.Max(48,
-                (screen.Bounds.Bottom - screen.WorkingArea.Bottom) / screen.Scaling);
-        }
-        double h = Bounds.Height - SafeGap.Height - 44;
+        double h = Bounds.Height - _bottomGap - 44;
         if (h < 80) return;
 
         double s = _scale = Math.Min(h / 990.0, Bounds.Width / 1600.0) * Program.UiScale;
 
-        Root.Margin = new Thickness(80 * s, 46 * s, 80 * s, 12 * s);
+        Root.Margin = new Thickness(80 * s, 46 * s, 80 * s, _bottomGap + 40 * s);
+        Footer.Margin = new Thickness(0, 0, 80 * s, _bottomGap + 14 * s);
+        DockRule.Height = 14 * s;
+        DockRule.Margin = new Thickness(5 * s, 0);
+        Footer.Padding = new Thickness(3 * s);
+        Footer.CornerRadius = new CornerRadius(99 * s);
+        foreach (var b in new[] { ModeButton, PrefsButton, QuitButton })
+        {
+            b.FontSize = 13 * s;
+            b.Padding = new Thickness(13 * s, 6 * s);
+            b.MinHeight = 30 * s;
+            b.CornerRadius = new CornerRadius(18 * s);
+        }
 
         double clock = 172 * s;
         ClockH.FontSize = clock;
@@ -995,39 +1003,7 @@ public partial class MainWindow : Window
 
     // ------------------------------------------------------------ 交互
     private WindowState _restoreMode = WindowState.Normal;
-    private void ToggleMode()
-    {
-        if (WindowState == WindowState.FullScreen) WindowState = _restoreMode;
-        else { _restoreMode = WindowState; WindowState = WindowState.FullScreen; }
-    }
-
-    private void SyncMode()
-    {
-        bool full = WindowState == WindowState.FullScreen;
-        ModeButton.Content = full ? "窗口化" : "全屏";
-        SafeGap.Height = full ? 48 : 6;
-        UpdateCursor();
-        ApplyScale();
-    }
-
-    private async void ConfirmExit()
-    {
-        var stay = new Button { Classes = { "board" }, Content = "继续看板" };
-        var quit = new Button { Classes = { "board", "quiet" }, Content = "退出夜板" };
-        var actions = new StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal,
-            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right, Spacing = 8, Children = { stay, quit } };
-        var dialog = new Window { Title = "夜板 · 退出", Icon = Icon, Width = 320, SizeToContent = SizeToContent.Height,
-            CanResize = false, ShowInTaskbar = false, WindowStartupLocation = WindowStartupLocation.CenterOwner,
-            RequestedThemeVariant = RequestedThemeVariant, Background = Background, FontFamily = FontUi, Topmost = Topmost,
-            Content = new StackPanel { Margin = new Thickness(22), Spacing = 20, Children = {
-                new TextBlock { Text = "退出夜板？", FontSize = 21, Foreground = new SolidColorBrush(Palette.Ink) }, actions } } };
-        stay.Click += (_, _) => dialog.Close(false);
-        quit.Click += (_, _) => dialog.Close(true);
-        dialog.KeyDown += (_, e) => { if (e.Key == Key.Escape) dialog.Close(false); };
-        dialog.Opened += (_, _) => stay.Focus();
-        if (await dialog.ShowDialog<bool>(this)) Close();
-    }
-
+    private double _bottomGap = 48;
     private void UpdateCursor()
     {
         Cursor = WindowState == WindowState.FullScreen ? NoCursor : ArrowCursor;
@@ -1072,6 +1048,96 @@ public partial class MainWindow : Window
         _hourlySignature = "";
         _dailySignature = "";
         Sun.InvalidateVisual();
+    }
+
+
+    private void ToggleMode()
+    {
+        if (WindowState == WindowState.FullScreen) WindowState = _restoreMode;
+        else { _restoreMode = WindowState; WindowState = WindowState.FullScreen; }
+    }
+
+    private void SyncMode()
+    {
+        bool full = WindowState == WindowState.FullScreen;
+        ModeButton.Content = full ? "窗口化" : "全屏";
+        _bottomGap = full ? 48 : 0;
+        UpdateCursor();
+        ApplyScale();
+    }
+
+    private async void ConfirmExit()
+    {
+        var stay = new Button { Classes = { "board", "primary" }, Content = "继续看板" };
+        var quit = new Button { Classes = { "board", "text" }, Content = "退出夜板" };
+
+        var actions = new StackPanel
+        {
+            Orientation = Avalonia.Layout.Orientation.Horizontal,
+            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right,
+            Spacing = 8,
+            Children = { quit, stay },
+        };
+
+        var title = new TextBlock
+        {
+            Text = "退出夜板？",
+            FontSize = 20,
+            Foreground = new SolidColorBrush(Palette.Ink),
+            FontFamily = FontMedium,
+        };
+
+        var body = new TextBlock
+        {
+            Text = "看板会关掉，下次从快捷方式再开。",
+            FontSize = 13,
+            Foreground = new SolidColorBrush(Palette.Dim),
+        };
+
+        var stack = new StackPanel { Spacing = 10, Children = { title, body } };
+        var panel = new StackPanel { Spacing = 22, Children = { stack, actions } };
+
+        var card = new Border
+        {
+            CornerRadius = new CornerRadius(16),
+            BorderThickness = new Thickness(1),
+            BorderBrush = new SolidColorBrush(Palette.Line),
+            Background = new SolidColorBrush(Palette.IsLight ? Color.Parse("#F6F2E9") : Color.Parse("#0C0B09")),
+            Padding = new Thickness(26, 22),
+            Child = panel,
+        };
+
+        var dialog = new Window
+        {
+            SystemDecorations = SystemDecorations.None,
+            TransparencyLevelHint = new[] { WindowTransparencyLevel.Transparent },
+            Background = Brushes.Transparent,
+            SizeToContent = SizeToContent.WidthAndHeight,
+            CanResize = false,
+            ShowInTaskbar = false,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            FontFamily = FontUi,
+            Content = card,
+            Topmost = Topmost,
+        };
+
+        dialog.PointerPressed += (_, e) =>
+        {
+            if (e.Handled) return;
+            if (e.Source is Button) return;
+            if (e.GetCurrentPoint(dialog).Properties.IsLeftButtonPressed) dialog.BeginMoveDrag(e);
+        };
+
+        stay.Click += (_, _) => dialog.Close(false);
+        quit.Click += (_, _) => dialog.Close(true);
+        dialog.KeyDown += (_, e) =>
+        {
+            if (e.Key == Key.Escape) dialog.Close(false);
+            else if (e.Key == Key.Enter) dialog.Close(false);
+        };
+        dialog.Opened += (_, _) => stay.Focus();
+
+        if (await dialog.ShowDialog<bool>(this)) Close();
     }
 
     private void OnKeyDown(object? sender, KeyEventArgs e)

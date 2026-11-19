@@ -13,6 +13,10 @@
         <SolidColorBrush x:Key="BtnOnStrong">#FFFFFF</SolidColorBrush>
         <SolidColorBrush x:Key="BtnHover">#E1D7C6</SolidColorBrush>
         <SolidColorBrush x:Key="BtnPress">#D7C9B4</SolidColorBrush>
+        <SolidColorBrush x:Key="BtnGhostHover">#12000000</SolidColorBrush>
+        <SolidColorBrush x:Key="BtnDock">#E8F3EDE2</SolidColorBrush>
+        <SolidColorBrush x:Key="BtnEdge">#22000000</SolidColorBrush>
+        <SolidColorBrush x:Key="BtnGhostPress">#1F000000</SolidColorBrush>
       </ResourceDictionary>
       <ResourceDictionary x:Key="Dark">
         <SolidColorBrush x:Key="BtnTone">#29251F</SolidColorBrush>
@@ -21,6 +25,10 @@
         <SolidColorBrush x:Key="BtnOnStrong">#322715</SolidColorBrush>
         <SolidColorBrush x:Key="BtnHover">#383228</SolidColorBrush>
         <SolidColorBrush x:Key="BtnPress">#463C30</SolidColorBrush>
+        <SolidColorBrush x:Key="BtnGhostHover">#12FFFFFF</SolidColorBrush>
+        <SolidColorBrush x:Key="BtnDock">#D91B1813</SolidColorBrush>
+        <SolidColorBrush x:Key="BtnEdge">#1FFFFFFF</SolidColorBrush>
+        <SolidColorBrush x:Key="BtnGhostPress">#1FFFFFFF</SolidColorBrush>
       </ResourceDictionary>
     </ResourceDictionary.ThemeDictionaries>
     <!-- 正文：HarmonyOS Sans SC（随程序嵌入，换机器不用装） -->
@@ -45,6 +53,15 @@
       <Setter Property="Foreground" Value="{DynamicResource BtnInk}"/>
     </Style>
     <Style Selector="Button.board.quiet"><Setter Property="Background" Value="Transparent"/></Style>
+    <Style Selector="Button.board.text">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="CornerRadius" Value="18"/>
+      <Setter Property="Padding" Value="13,6"/>
+      <Setter Property="MinHeight" Value="30"/>
+      <Setter Property="FontSize" Value="13"/>
+      <Setter Property="Foreground" Value="{DynamicResource BtnInk}"/>
+    </Style>
     <Style Selector="Button.board.primary">
       <Setter Property="Background" Value="{DynamicResource BtnStrong}"/>
       <Setter Property="Foreground" Value="{DynamicResource BtnOnStrong}"/>
@@ -52,6 +69,16 @@
     <Style Selector="Button.board:pointerover /template/ ContentPresenter#PART_ContentPresenter">
       <Setter Property="Background" Value="{DynamicResource BtnHover}"/>
       <Setter Property="Foreground" Value="{DynamicResource BtnInk}"/>
+    </Style>
+    <Style Selector="Button.board.text /template/ ContentPresenter#PART_ContentPresenter TextBlock">
+      <Setter Property="LetterSpacing" Value="1.5"/>
+    </Style>
+    <Style Selector="Button.board.text:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource BtnGhostHover}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BtnInk}"/>
+    </Style>
+    <Style Selector="Button.board.text:pressed /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource BtnGhostPress}"/>
     </Style>
     <Style Selector="Button.board:pressed /template/ ContentPresenter#PART_ContentPresenter">
       <Setter Property="Background" Value="{DynamicResource BtnPress}"/>

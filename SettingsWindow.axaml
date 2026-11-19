@@ -4,7 +4,7 @@
         x:Class="NightBoard.SettingsWindow"
         Title="夜板 · 设置"
         Width="560"
-        Height="630"
+        SizeToContent="Height"
         Background="Transparent"
 
         FontFamily="{StaticResource FontUi}"

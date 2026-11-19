@@ -14,7 +14,7 @@
         WindowState="FullScreen"
         Focusable="True">
 
-  <Grid RowDefinitions="*,Auto,Auto">
+  <Grid>
     <Grid ClipToBounds="True" x:Name="Root" ColumnDefinitions="1.06*,1*" Margin="80,46,80,56">
 
       <!-- ================= 左栏 ================= -->
@@ -192,15 +192,22 @@
 
     </Grid>
 
-    <Border Grid.Row="1" x:Name="Footer" BorderThickness="0,1,0,0" Padding="20,5">
-      <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" Spacing="8">
-        <Button Classes="board" x:Name="ModeButton" Content="窗口化" ToolTip.Tip="切换全屏（F11）"/>
-        <Button Classes="board" x:Name="PrefsButton" Content="设置" ToolTip.Tip="设置（S）"/>
-        <Button Classes="board quiet" x:Name="QuitButton" Content="退出" ToolTip.Tip="退出夜板（Ctrl+Q）"/>
+    <Border x:Name="Footer" Opacity="0.62"
+            HorizontalAlignment="Right" VerticalAlignment="Bottom"
+            Background="{DynamicResource BtnDock}" BorderBrush="{DynamicResource BtnEdge}"
+            BorderThickness="1" Padding="3">
+      <Border.Transitions>
+        <Transitions><DoubleTransition Property="Opacity" Duration="0:0:0.22"/></Transitions>
+      </Border.Transitions>
+      <StackPanel Orientation="Horizontal" Spacing="2">
+        <Button Classes="board text" x:Name="ModeButton" Content="窗口化" ToolTip.Tip="切换全屏（F11）"/>
+        <Button Classes="board text" x:Name="PrefsButton" Content="设置" ToolTip.Tip="设置（S）"/>
+        <Border x:Name="DockRule" Width="1" Height="14" Margin="5,0"
+                Background="{DynamicResource BtnEdge}" VerticalAlignment="Center"/>
+        <Button Classes="board text" x:Name="QuitButton" Content="退出" ToolTip.Tip="退出夜板（Ctrl+Q）"/>
       </StackPanel>
     </Border>
-    <Border Grid.Row="2" x:Name="SafeGap" Height="48" IsHitTestVisible="False"/>
     <!-- 调暗层：盖住全屏，不影响命中 -->
-    <Border Grid.RowSpan="3" x:Name="DimLayer" Background="#000000" Opacity="0" IsHitTestVisible="False"/>
+    <Border x:Name="DimLayer" Background="#000000" Opacity="0" IsHitTestVisible="False"/>
   </Grid>
 </Window>
