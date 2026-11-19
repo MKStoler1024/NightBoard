@@ -137,41 +137,57 @@ public class Sparkline : Control
         if (AutoScale)
         {
             double peak = 0;
-            for (int i = 0; i < n; i++) if (vals[i] > peak) peak = vals[i];
+            for (int i = 0; i < n; i++)
+                if (!double.IsNaN(vals[i]) && vals[i] > peak) peak = vals[i];
             top = Math.Clamp(Math.Ceiling(peak * 1.3 / 5) * 5, 25, 100);
         }
 
         double Y(double v) => h - Math.Clamp(v, 0, top) / top * (h - 2) - 1;
 
-        // 面积
-        if (Fill != null)
+        // NaN 当断点：显卡被关掉那段时间曲线是空的，不画成一条贴底的 0
+        int lastValid = -1;
+        for (int i = n - 1; i >= 0; i--)
+            if (!double.IsNaN(vals[i])) { lastValid = i; break; }
+
+        // 面积与折线都按连续段画
+        var seg = new List<int>(n);
+        for (int i = 0; i <= n; i++)
         {
-            var area = new StreamGeometry();
-            using (var g = area.Open())
+            if (i < n && !double.IsNaN(vals[i])) { seg.Add(i); continue; }
+            if (seg.Count > 0)
             {
-                g.BeginFigure(new Point(X(0), h), true);
-                for (int i = 0; i < n; i++) g.LineTo(new Point(X(i), Y(vals[i])));
-                g.LineTo(new Point(X(n - 1), h));
-                g.EndFigure(true);
+                if (Fill != null)
+                {
+                    var area = new StreamGeometry();
+                    using (var g = area.Open())
+                    {
+                        g.BeginFigure(new Point(X(seg[0]), h), true);
+                        foreach (int k in seg) g.LineTo(new Point(X(k), Y(vals[k])));
+                        g.LineTo(new Point(X(seg[^1]), h));
+                        g.EndFigure(true);
+                    }
+                    ctx.DrawGeometry(Fill, null, area);
+                }
+
+                if (Stroke != null && seg.Count > 1)
+                {
+                    var line = new StreamGeometry();
+                    using (var g = line.Open())
+                    {
+                        g.BeginFigure(new Point(X(seg[0]), Y(vals[seg[0]])), false);
+                        for (int j = 1; j < seg.Count; j++)
+                            g.LineTo(new Point(X(seg[j]), Y(vals[seg[j]])));
+                        g.EndFigure(false);
+                    }
+                    ctx.DrawGeometry(null,
+                        new Pen(Stroke, 1.6, lineCap: PenLineCap.Round, lineJoin: PenLineJoin.Round), line);
+                }
+
+                seg.Clear();
             }
-            ctx.DrawGeometry(Fill, null, area);
         }
 
-        // 折线
-        if (Stroke != null)
-        {
-            var line = new StreamGeometry();
-            using (var g = line.Open())
-            {
-                g.BeginFigure(new Point(X(0), Y(vals[0])), false);
-                for (int i = 1; i < n; i++) g.LineTo(new Point(X(i), Y(vals[i])));
-                g.EndFigure(false);
-            }
-            ctx.DrawGeometry(null,
-                new Pen(Stroke, 1.6, lineCap: PenLineCap.Round, lineJoin: PenLineJoin.Round), line);
-
-            var head = new Point(X(n - 1), Y(vals[n - 1]));
-            ctx.DrawEllipse(Stroke, null, head, 2.4, 2.4);
-        }
+        if (Stroke != null && lastValid >= 0)
+            ctx.DrawEllipse(Stroke, null, new Point(X(lastValid), Y(vals[lastValid])), 2.4, 2.4);
     }
 }

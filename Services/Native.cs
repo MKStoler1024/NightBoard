@@ -238,6 +238,108 @@ internal static unsafe class Native
     public const uint DXGI_ADAPTER_FLAG_SOFTWARE = 2;
     public const uint VENDOR_MICROSOFT = 0x1414;
 
+    // ------------------------------------------------------------- PnP 显示设备
+    /// <summary>设备管理器里的一个显示设备（含已禁用/出问题的）。</summary>
+    public sealed record PnpDisplay(string Name, uint VendorId, uint DeviceId, int Problem, string Hwid);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct SP_DEVINFO_DATA
+    {
+        public uint cbSize;
+        public Guid ClassGuid;
+        public uint DevInst;
+        public IntPtr Reserved;
+    }
+
+    [DllImport("setupapi.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern IntPtr SetupDiGetClassDevs(ref Guid classGuid, IntPtr enumerator,
+        IntPtr hwndParent, uint flags);
+
+    [DllImport("setupapi.dll", SetLastError = true)]
+    private static extern bool SetupDiEnumDeviceInfo(IntPtr set, uint index, ref SP_DEVINFO_DATA data);
+
+    [DllImport("setupapi.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern bool SetupDiGetDeviceRegistryProperty(IntPtr set, ref SP_DEVINFO_DATA data,
+        uint property, out uint regType, byte[]? buffer, uint size, out uint required);
+
+    [DllImport("setupapi.dll", SetLastError = true)]
+    private static extern bool SetupDiDestroyDeviceInfoList(IntPtr set);
+
+    [DllImport("cfgmgr32.dll")]
+    private static extern int CM_Get_DevNode_Status(out uint status, out uint problem, uint devInst, uint flags);
+
+    private const uint DIGCF_PRESENT = 0x02;
+    private const uint SPDRP_DEVICEDESC = 0x00;
+    private const uint SPDRP_HARDWAREID = 0x01;
+    private static readonly Guid GUID_DEVCLASS_DISPLAY = new("4d36e968-e325-11ce-bfc1-08002be10318");
+
+    private static string ReadProp(IntPtr set, ref SP_DEVINFO_DATA data, uint prop)
+    {
+        SetupDiGetDeviceRegistryProperty(set, ref data, prop, out _, null, 0, out uint need);
+        if (need == 0) return "";
+        var buf = new byte[need];
+        if (!SetupDiGetDeviceRegistryProperty(set, ref data, prop, out _, buf, need, out _)) return "";
+        return System.Text.Encoding.Unicode.GetString(buf).TrimEnd('\0');
+    }
+
+    /// <summary>
+    /// 枚举物理显示设备。和 DXGI 不同，这里连"被禁用/掉驱动"的卡都能看到，
+    /// 所以开机时独显就是关着的，也能给它留一张写着「已关闭」的卡片。
+    /// </summary>
+    public static List<PnpDisplay> EnumerateDisplayDevices()
+    {
+        var list = new List<PnpDisplay>();
+        if (!OperatingSystem.IsWindows()) return list;
+
+        Guid guid = GUID_DEVCLASS_DISPLAY;
+        IntPtr set = SetupDiGetClassDevs(ref guid, IntPtr.Zero, IntPtr.Zero, DIGCF_PRESENT);
+        if (set == IntPtr.Zero || set == new IntPtr(-1)) return list;
+
+        try
+        {
+            var data = new SP_DEVINFO_DATA { cbSize = (uint)Marshal.SizeOf<SP_DEVINFO_DATA>() };
+            for (uint i = 0; SetupDiEnumDeviceInfo(set, i, ref data); i++)
+            {
+                string desc = ReadProp(set, ref data, SPDRP_DEVICEDESC);
+                string hwid = ReadProp(set, ref data, SPDRP_HARDWAREID).Split('\0')[0];
+                if (string.IsNullOrWhiteSpace(hwid)) continue;
+
+                // 只要 PCI 上的真卡；虚拟显示器、基本显示适配器都不算
+                if (!hwid.StartsWith("PCI\\", StringComparison.OrdinalIgnoreCase)) continue;
+                uint vendor = ParseHex(hwid, "VEN_");
+                uint device = ParseHex(hwid, "DEV_");
+                if (vendor == 0 || vendor == VENDOR_MICROSOFT) continue;
+                if (desc.Contains("Basic", StringComparison.OrdinalIgnoreCase) ||
+                    desc.Contains("Virtual", StringComparison.OrdinalIgnoreCase) ||
+                    desc.Contains("Remote", StringComparison.OrdinalIgnoreCase) ||
+                    desc.Contains("Indirect", StringComparison.OrdinalIgnoreCase)) continue;
+
+                int problem = 0;
+                if (CM_Get_DevNode_Status(out _, out uint p, data.DevInst, 0) == 0) problem = (int)p;
+
+                list.Add(new PnpDisplay(desc, vendor, device, problem, hwid));
+            }
+        }
+        catch
+        {
+            // 枚举失败就当没有 PnP 信息，退回纯 DXGI
+        }
+        finally
+        {
+            SetupDiDestroyDeviceInfoList(set);
+        }
+
+        return list;
+    }
+
+    private static uint ParseHex(string text, string marker)
+    {
+        int at = text.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
+        if (at < 0 || at + marker.Length + 4 > text.Length) return 0;
+        return uint.TryParse(text.Substring(at + marker.Length, 4),
+            System.Globalization.NumberStyles.HexNumber, null, out uint v) ? v : 0;
+    }
+
     /// <summary>枚举所有非软件适配器。失败返回空列表。</summary>
     public static List<DXGI_ADAPTER_DESC1> EnumerateAdapters()
     {

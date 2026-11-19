@@ -190,7 +190,10 @@ public partial class MainWindow : Window
             DispatcherTimer.RunOnce(OpenSettings, TimeSpan.FromSeconds(1.5));
 
         if (Environment.GetEnvironmentVariable("NB_DIAG") == "1")
-            DispatcherTimer.RunOnce(DumpLayout, TimeSpan.FromSeconds(6));
+        {
+            double delay = double.TryParse(Environment.GetEnvironmentVariable("NB_DIAGDELAY"), out var d) ? d : 6;
+            DispatcherTimer.RunOnce(DumpLayout, TimeSpan.FromSeconds(delay));
+        }
     }
 
     // ------------------------------------------------------------ 动画
@@ -851,7 +854,7 @@ public partial class MainWindow : Window
 
         foreach (var card in _charts.Values)
         {
-            card.Title.FontSize = 17 * s;
+            card.Title.FontSize = 16 * s;
             card.Value.FontSize = 27 * s;
             card.Root.Margin = new Thickness(0, 0, 0, 24 * s);
         }
@@ -869,15 +872,15 @@ public partial class MainWindow : Window
     }
 
     // ------------------------------------------------------------ 图表
-    private ChartCard BuildCard(string key, string title, Color accent)
+    private ChartCard BuildCard(string key, string title, Color accent, string? tip = null)
     {
         var titleTb = new TextBlock
         {
             Text = title,
             Foreground = new SolidColorBrush(Palette.Dim),
             FontFamily = FontMedium,
-            LetterSpacing = 3,
-            FontSize = 17 * _scale,
+            LetterSpacing = 1.2,
+            FontSize = 16 * _scale,
             VerticalAlignment = Avalonia.Layout.VerticalAlignment.Bottom,
         };
         Palette.Track(titleTb, Palette.Role.Dim);
@@ -919,6 +922,7 @@ public partial class MainWindow : Window
         grid.Children.Add(chart);
 
         var root = new Border { Child = grid, Margin = new Thickness(0, 0, 0, 24 * _scale) };
+        if (tip is not null) ToolTip.SetTip(root, tip);
 
         _charts[key] = new ChartCard
         {
@@ -944,9 +948,14 @@ public partial class MainWindow : Window
 
         BuildCard(CpuKey, "CPU", Palette.Cpu);
 
+        // 有几块卡就画几张，标题直接用卡名——不预设"一定有独显"
+        var used = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var g in gpus)
-            BuildCard(g.Key, g.Kind == "igpu" ? "GPU · 核显" : "GPU · 独显",
-                g.Kind == "igpu" ? Palette.Igpu : Palette.Dgpu);
+        {
+            string title = g.Label;
+            if (!used.Add(title)) title = $"{title} · 2";
+            BuildCard(g.Key, title, g.Kind == "igpu" ? Palette.Igpu : Palette.Dgpu, g.Name);
+        }
 
         BuildCard(MemKey, "内存", Palette.Mem);
 
@@ -974,7 +983,18 @@ public partial class MainWindow : Window
         {
             if (!_charts.TryGetValue(g.Key, out var card)) continue;
             card.Chart.Values = g.Hist;
-            card.Value.Text = $"{g.Util:F1}%";
+
+            // 被系统关掉的卡不能显示成 0%——那不是闲，是没开机
+            if (g.State == "run")
+            {
+                card.Value.Text = $"{g.Util:F1}%";
+                card.Value.Foreground = new SolidColorBrush(Palette.Ink);
+            }
+            else
+            {
+                card.Value.Text = g.State == "sleep" ? "休眠" : "已关闭";
+                card.Value.Foreground = new SolidColorBrush(Palette.Dim);
+            }
         }
 
         if (_charts.TryGetValue(MemKey, out var memCard))
@@ -1245,6 +1265,13 @@ public partial class MainWindow : Window
         var w = WeatherService.Current;
         sb.AppendLine($"weather: {w.City} {w.Temp}° {w.Text} aqi={w.Aqi} wind={w.Wind}");
         sb.AppendLine($"hourly={WeatherService.Hourly.Count} daily={WeatherService.Daily.Count}");
+
+        foreach (var d in Native.EnumerateDisplayDevices())
+            sb.AppendLine($"pnp {d.Name} {d.VendorId:X4}:{d.DeviceId:X4} problem={d.Problem}");
+
+        foreach (var g in _sampler.GpuAdapters)
+            sb.AppendLine($"gpu {g.Label} {g.Name} present={g.Present} state={g.State} " +
+                          $"util={g.Util:F1} counterAge={(DateTime.UtcNow - g.LastCounterUtc).TotalSeconds:F0}s");
 
         System.IO.File.WriteAllText(
             System.IO.Path.Combine(System.IO.Path.GetTempPath(), "nb-diag.txt"), sb.ToString());

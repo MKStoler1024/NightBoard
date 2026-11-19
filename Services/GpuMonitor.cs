@@ -7,6 +7,9 @@ namespace NightBoard.Services;
 
 public enum GpuKind { Integrated, Discrete }
 
+/// <summary>Running＝正常，Sleep＝系统把卡关了或挂起，Offline＝已经从系统里消失。</summary>
+public enum GpuState { Running, Sleep, Offline }
+
 public sealed class GpuAdapter
 {
     public required string Key { get; init; }
@@ -19,7 +22,62 @@ public sealed class GpuAdapter
     public double Util { get; set; }
     public HashSet<string> Luids { get; } = new(StringComparer.OrdinalIgnoreCase);
 
-    public string Label => Kind == GpuKind.Integrated ? "核显" : "独显";
+    /// <summary>最近一次枚举时还在系统里。</summary>
+    public bool Present { get; set; } = true;
+
+    /// <summary>最近一次读到过计数器（引擎或显存）的时刻。</summary>
+    public DateTime LastCounterUtc { get; set; } = DateTime.UtcNow;
+
+    /// <summary>最近一次枚举到它的时刻，用于断连后保留一段时间的卡片。</summary>
+    public DateTime LastPresentUtc { get; set; } = DateTime.UtcNow;
+
+    /// <summary>读数是否可信：真的空闲还是驱动已经不供数了。</summary>
+    public GpuState State
+    {
+        get
+        {
+            if (!Present) return GpuState.Offline;
+
+            // 只有独显会整块被系统关掉；核显空转时没有计数器是常态，别误判
+            if (Kind == GpuKind.Discrete &&
+                (DateTime.UtcNow - LastCounterUtc).TotalSeconds > SleepAfterSeconds)
+                return GpuState.Sleep;
+
+            return GpuState.Running;
+        }
+    }
+
+    /// <summary>
+    /// 多久没有计数器就认定显卡被关掉/挂起了。Windows 关掉一块卡之后，
+    /// GPU Engine 和 GPU Adapter Memory 的实例会一起消失，所以两个都读不到才算数；
+    /// 正常空闲的卡至少还有显存实例在。
+    /// </summary>
+    public const double SleepAfterSeconds = 45;
+
+    /// <summary>卡片标题用短名字：去掉厂商前缀和 Graphics 之类的废话。</summary>
+    public string Label => ShortName(Name);
+
+    public static string ShortName(string name)
+    {
+        string n = name;
+        foreach (var junk in new[] { "(R)", "(TM)", "(r)", "(tm)" })
+            n = n.Replace(junk, "");
+
+        foreach (var vendor in new[] { "NVIDIA", "AMD", "Intel(R)", "Intel", "ATI" })
+            if (n.StartsWith(vendor, StringComparison.OrdinalIgnoreCase))
+            {
+                n = n[vendor.Length..].Trim();
+                break;
+            }
+
+        foreach (var word in new[] { "GeForce", "Radeon", "Graphics" })
+            n = n.Replace(word, "").Trim();
+
+        if (n.EndsWith(" GPU", StringComparison.OrdinalIgnoreCase)) n = n[..^4].Trim();
+
+        n = System.Text.RegularExpressions.Regex.Replace(n, @"\s{2,}", " ").Trim();
+        return n.Length == 0 ? name : n;
+    }
 }
 
 /// <summary>
@@ -35,7 +93,10 @@ public sealed class GpuMonitor : IDisposable
     private readonly Native.PdhCounter _engine;
     private readonly Native.PdhCounter _vram;
     private DateTime _lastScan = DateTime.MinValue;
-    private const double RescanSeconds = 300;
+    private const double RescanSeconds = 60;
+
+    /// <summary>卡从枚举里消失后还保留多久卡片，免得临时断连就把布局抖一下。</summary>
+    private const double KeepMissingSeconds = 600;
 
     public List<GpuAdapter> Adapters { get; private set; } = new();
     public string Note { get; private set; } = "";
@@ -50,7 +111,14 @@ public sealed class GpuMonitor : IDisposable
     private static GpuKind Classify(uint vendor, string name, double dedMb, double sharedMb)
     {
         if (vendor == 0x10DE) return GpuKind.Discrete;
-        if (vendor == 0x8086) return dedMb >= 2048 ? GpuKind.Discrete : GpuKind.Integrated;
+        // Intel 的 Arc 独显没有显存数据时别被当成核显
+        if (vendor == 0x8086)
+        {
+            if (name.Contains("Arc", StringComparison.OrdinalIgnoreCase) &&
+                !name.Contains("Graphics", StringComparison.OrdinalIgnoreCase))
+                return GpuKind.Discrete;
+            return dedMb >= 2048 ? GpuKind.Discrete : GpuKind.Integrated;
+        }
 
         if (dedMb <= 512 && sharedMb > dedMb * 3) return GpuKind.Integrated;
         if (dedMb >= 1024) return GpuKind.Discrete;
@@ -70,7 +138,8 @@ public sealed class GpuMonitor : IDisposable
         _lastScan = DateTime.UtcNow;
 
         var descs = Native.EnumerateAdapters();
-        if (descs.Count == 0)
+        var pnp = Native.EnumerateDisplayDevices();
+        if (descs.Count == 0 && pnp.Count == 0)
         {
             if (Adapters.Count == 0)
                 Note = _engine.Ready ? "未检测到图形适配器" : _engine.Error;
@@ -80,30 +149,65 @@ public sealed class GpuMonitor : IDisposable
         var old = Adapters.ToDictionary(a => a.Key, a => a, StringComparer.OrdinalIgnoreCase);
         var merged = new Dictionary<string, GpuAdapter>(StringComparer.OrdinalIgnoreCase);
 
+        // 卡片按「厂商-设备」建，不按 LUID：这样开关一次显卡、驱动重载之后，
+        // 还是同一张卡、同一段曲线。
+        GpuAdapter GetOrAdd(uint vendor, uint device, string name, double dedMb, double sharedMb)
+        {
+            string baseKey = $"{vendor:X4}-{device:X4}";
+            string key = baseKey;
+            int dup = 0;
+            while (merged.TryGetValue(key, out var exist) && (exist.Vendor != vendor || exist.Device != device))
+                key = $"{baseKey}#{++dup}";
+
+            if (merged.TryGetValue(key, out var found))
+            {
+                if (dedMb > found.VramTotalMb) found.VramTotalMb = dedMb;
+                return found;
+            }
+
+            var made = new GpuAdapter
+            {
+                Key = key,
+                Name = name,
+                Kind = Classify(vendor, name, dedMb, sharedMb),
+                Vendor = vendor,
+                Device = device,
+                VramTotalMb = dedMb,
+                Present = false,
+            };
+            merged[key] = made;
+            return made;
+        }
+
+        // 先按硬件建卡：设备管理器里关掉的独显也会在这一步出现
+        foreach (var d in pnp)
+        {
+            var card = GetOrAdd(d.VendorId, d.DeviceId, d.Name, 0, 0);
+            if (d.Problem == 0) card.Present = true;
+            if (card.Present) card.LastPresentUtc = DateTime.UtcNow;
+        }
+
+        // 再用 DXGI 补 LUID、显存，并把正在供数的卡标成在线
         foreach (var d in descs)
         {
             double dedMb = d.DedicatedVideoMemory.ToUInt64() / 1048576.0;
             double sharedMb = d.SharedSystemMemory.ToUInt64() / 1048576.0;
 
-            // 同一块物理卡常被驱动枚举成多个适配器（虚拟显示 / 多输出），按指纹归并
-            string fingerprint = $"{d.VendorId:X4}-{d.DeviceId:X4}-{d.SubSysId:X4}-{Math.Round(dedMb)}";
-            string luid = $"{d.AdapterLuid.HighPart:X8}:{d.AdapterLuid.LowPart:X8}";
+            var card = GetOrAdd(d.VendorId, d.DeviceId, d.Description, dedMb, sharedMb);
+            card.Luids.Add($"{d.AdapterLuid.HighPart:X8}:{d.AdapterLuid.LowPart:X8}");
+            card.Present = true;
+            card.LastPresentUtc = DateTime.UtcNow;
+        }
 
-            if (!merged.TryGetValue(fingerprint, out var adapter))
+        // 枚举里彻底没了（拔掉了）：留十分钟再删，别让布局立刻跳
+        foreach (var (key, prev) in old)
+        {
+            if (merged.ContainsKey(key)) continue;
+            if ((DateTime.UtcNow - prev.LastPresentUtc).TotalSeconds < KeepMissingSeconds)
             {
-                adapter = new GpuAdapter
-                {
-                    Key = luid,
-                    Name = d.Description,
-                    Kind = Classify(d.VendorId, d.Description, dedMb, sharedMb),
-                    Vendor = d.VendorId,
-                    Device = d.DeviceId,
-                    VramTotalMb = dedMb,
-                };
-                merged[fingerprint] = adapter;
+                prev.Present = false;
+                merged[key] = prev;
             }
-
-            adapter.Luids.Add(luid);
         }
 
         foreach (var a in merged.Values)
@@ -112,6 +216,7 @@ public sealed class GpuMonitor : IDisposable
             {
                 a.Util = prev.Util;
                 a.VramUsedMb = prev.VramUsedMb;
+                a.LastCounterUtc = prev.LastCounterUtc;
             }
         }
 
@@ -119,6 +224,11 @@ public sealed class GpuMonitor : IDisposable
             .OrderBy(a => a.Kind == GpuKind.Discrete ? 0 : 1)
             .ThenBy(a => a.Name)
             .ToList();
+
+        // 调试用：NB_GPUSLEEP=off 假装独显在设备管理器里被关掉
+        if (string.Equals(Environment.GetEnvironmentVariable("NB_GPUSLEEP"), "off", StringComparison.OrdinalIgnoreCase))
+            foreach (var a in merged.Values)
+                if (a.Kind == GpuKind.Discrete) a.Present = false;
 
         Note = _engine.Ready ? "" : _engine.Error;
     }
@@ -146,6 +256,7 @@ public sealed class GpuMonitor : IDisposable
 
         // (卡, 物理引擎) -> 占用。同一引擎上多个进程是分摊的，要相加
         var engines = new Dictionary<(string adapter, string engine), double>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var (instance, value) in _engine.Read())
         {
@@ -165,6 +276,7 @@ public sealed class GpuMonitor : IDisposable
 
             var k = (adapter.Key, $"{m.Groups[3].Value}-{eng}");
             engines[k] = engines.GetValueOrDefault(k) + Math.Max(0, value);
+            seen.Add(adapter.Key);
         }
 
         // 每张卡取自己最忙的引擎（与任务管理器口径一致）
@@ -186,10 +298,21 @@ public sealed class GpuMonitor : IDisposable
                 Convert.ToUInt32(m.Groups[2].Value, 16));
             if (adapter is null) continue;
             vram[adapter.Key] = vram.GetValueOrDefault(adapter.Key) + value;
+            seen.Add(adapter.Key);
         }
 
+        var sim = Environment.GetEnvironmentVariable("NB_GPUSLEEP");
+        bool simSleep = !string.IsNullOrEmpty(sim);
+
         foreach (var a in Adapters)
+        {
             a.VramUsedMb = vram.GetValueOrDefault(a.Key) / 1048576.0;
+
+            // 调试用：假装独显被系统关掉，验证卡片与曲线的降级表现
+            if (simSleep && a.Kind == GpuKind.Discrete) continue;
+
+            if (seen.Contains(a.Key)) a.LastCounterUtc = DateTime.UtcNow;
+        }
     }
 
     public void Dispose()

@@ -16,7 +16,8 @@ public sealed record GpuSample(
     double Util,
     double VramUsedMb,
     double VramTotalMb,
-    IReadOnlyList<double> Hist);
+    IReadOnlyList<double> Hist,
+    string State);
 
 public sealed class Snapshot
 {
@@ -88,6 +89,9 @@ public sealed class SystemSampler : IDisposable
 
     public string Host { get; } = Environment.MachineName;
 
+    /// <summary>诊断用：当前这次枚举到的适配器。</summary>
+    public IReadOnlyList<GpuAdapter> GpuAdapters => _gpu.Adapters;
+
     public SystemSampler(string gpuFilter = "all")
     {
         _gpuFilter = gpuFilter;
@@ -143,7 +147,10 @@ public sealed class SystemSampler : IDisposable
         {
             if (!_gpuHist.TryGetValue(a.Key, out var list))
                 _gpuHist[a.Key] = list = new List<double>(HistLen);
-            Push(list, a.Util);
+
+            // 关掉/休眠的卡不往曲线里塞 0：留空，曲线在这里断开，
+            // 不然看着就像"贴着底的 0%"。
+            Push(list, a.State == GpuState.Running ? a.Util : double.NaN);
         }
 
         foreach (var key in _gpuHist.Keys.ToList())
@@ -170,7 +177,13 @@ public sealed class SystemSampler : IDisposable
             a.Util,
             Math.Round(a.VramUsedMb),
             Math.Round(a.VramTotalMb),
-            _gpuHist.TryGetValue(a.Key, out var h) ? h.ToArray() : Array.Empty<double>()
+            _gpuHist.TryGetValue(a.Key, out var h) ? h.ToArray() : Array.Empty<double>(),
+            a.State switch
+            {
+                GpuState.Sleep => "sleep",
+                GpuState.Offline => "off",
+                _ => "run",
+            }
         )).ToList();
 
         if (_gpuFilter != "all")
