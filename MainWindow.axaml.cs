@@ -53,6 +53,8 @@ public partial class MainWindow : Window
     private string _calSignature = "";
     private string _festDay = "";
     private (string Name, DateTime Date) _festival;
+    private (string Name, DateTime Date)[] _festivals = Array.Empty<(string Name, DateTime Date)>();
+    private (string Name, DateTime At) _moonPhase = ("", DateTime.MinValue);
     private (string Name, DateTime Date) _term;
 
     public MainWindow()
@@ -393,7 +395,9 @@ public partial class MainWindow : Window
         if (today != _festDay)
         {
             _festDay = today;
-            _festival = Festivals.Next(now);
+            _festivals = Festivals.Upcoming(now, 2).ToArray();
+            _festival = _festivals.Length > 0 ? _festivals[0] : ("", default);
+            _moonPhase = Astro.NextMoonPhase(now);
             _term = SolarTerms.Next(now);
             _calSignature = "";
         }
@@ -424,6 +428,37 @@ public partial class MainWindow : Window
             TermName.Text = "";
             TermDate.Text = "";
             TermLeft.Text = "";
+        }
+
+        var after = _festivals.Length > 1 ? _festivals[1] : ("", default);
+        if (after.Item1.Length > 0)
+        {
+            AfterName.Text = after.Item1;
+            AfterDate.Text = after.Item2.ToString("MM-dd");
+            int ad = (after.Item2.Date - now.Date).Days;
+            AfterLeft.Text = ad == 0 ? "就是今天" : $"{ad} 天后";
+        }
+        else
+        {
+            AfterName.Text = "";
+            AfterDate.Text = "";
+            AfterLeft.Text = "";
+        }
+
+        if (_moonPhase.Item1.Length > 0)
+        {
+            var span = _moonPhase.Item2 - now;
+            MoonPhaseLabel.Text = $"下次{_moonPhase.Item1}";
+            MoonPhaseDate.Text = _moonPhase.Item2.ToString(span.TotalDays >= 1 ? "MM-dd" : "HH:mm");
+            MoonPhaseLeft.Text = span.TotalDays >= 1
+                ? $"{(int)span.TotalDays} 天后"
+                : $"{Math.Max(1, (int)span.TotalHours)} 小时后";
+        }
+        else
+        {
+            MoonPhaseLabel.Text = "下次月相";
+            MoonPhaseDate.Text = "";
+            MoonPhaseLeft.Text = "";
         }
 
         var ev = IcsCalendar.NextEvent(now);
@@ -676,13 +711,13 @@ public partial class MainWindow : Window
         foreach (var tb in new[] { WxFeels, WxHum, WxAqi, WxWind, WxCity, WxMoon, WxAvg })
             tb.Foreground = new SolidColorBrush(Palette.Value);
         // 层次：名字 Ink → 数值 Value → 标签 Dim → 陪衬 Faint
-        foreach (var run in new[] { FestName, TermName, CdName, CdValue })
+        foreach (var run in new[] { FestName, TermName, CdName, CdValue, AfterName })
             run.Foreground = new SolidColorBrush(Palette.Ink);
 
-        foreach (var run in new[] { EvTitle, EvTime, FestDate, TermDate, FestLeft, TermLeft, EvWhen })
+        foreach (var run in new[] { EvTitle, EvTime, FestDate, TermDate, FestLeft, TermLeft, EvWhen, AfterDate, AfterLeft, MoonPhaseDate, MoonPhaseLeft })
             run.Foreground = new SolidColorBrush(Palette.Value);
 
-        foreach (var run in new[] { FestLabel, TermLabel, EvLabel, CdMid, CdUnit })
+        foreach (var run in new[] { FestLabel, TermLabel, EvLabel, CdMid, CdUnit, AfterLabel, MoonPhaseLabel })
             run.Foreground = new SolidColorBrush(Palette.Dim);
 
 

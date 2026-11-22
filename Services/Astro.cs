@@ -119,4 +119,26 @@ public static class Astro
         double diff = Mod360(lambdaMoon - lambdaSun) * Rad;
         return (1 - Math.Cos(diff)) / 2.0;
     }
+
+    /// <summary>下一次满月或新月（取先到的那个）。相位的定义：0 新月、0.5 满月。</summary>
+    public static (string Name, DateTime At) NextMoonPhase(DateTime from)
+    {
+        double prev = MoonPhase(from);
+
+        for (int i = 1; i <= 24 * 45; i++)
+        {
+            var t = from.AddHours(i);
+            double cur = MoonPhase(t);
+
+            if (prev < 0.5 && cur >= 0.5) return ("满月", t);
+            if (cur < prev) // 越过 1.0 回到新月
+            {
+                if (cur <= 0.02 || prev >= 0.98) return ("新月", t);
+            }
+
+            prev = cur;
+        }
+
+        return ("", from);
+    }
 }

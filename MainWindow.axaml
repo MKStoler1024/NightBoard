@@ -159,6 +159,26 @@
             </WrapPanel>
 
             <WrapPanel Orientation="Horizontal" Width="250">
+              <TextBlock x:Name="AfterLabel" Text="再往后" LetterSpacing="1"
+                         VerticalAlignment="Center" Margin="0,0,9,2"/>
+              <TextBlock x:Name="AfterName" Text="—" LetterSpacing="1"
+                         VerticalAlignment="Center" Margin="0,0,9,2"/>
+              <TextBlock x:Name="AfterDate" Text=" " LetterSpacing="1"
+                         VerticalAlignment="Center" Margin="0,0,9,2"/>
+              <TextBlock x:Name="AfterLeft" Text=" " LetterSpacing="1"
+                         VerticalAlignment="Center" Margin="0,0,9,2"/>
+            </WrapPanel>
+
+            <WrapPanel Orientation="Horizontal" Width="250">
+              <TextBlock x:Name="MoonPhaseLabel" Text="下次满月" LetterSpacing="1"
+                         VerticalAlignment="Center" Margin="0,0,9,2"/>
+              <TextBlock x:Name="MoonPhaseDate" Text=" " LetterSpacing="1"
+                         VerticalAlignment="Center" Margin="0,0,9,2"/>
+              <TextBlock x:Name="MoonPhaseLeft" Text=" " LetterSpacing="1"
+                         VerticalAlignment="Center" Margin="0,0,9,2"/>
+            </WrapPanel>
+
+            <WrapPanel Orientation="Horizontal" Width="250">
               <TextBlock x:Name="TermLabel" Text="下个节气" LetterSpacing="1"
                          VerticalAlignment="Center" Margin="0,0,9,2"/>
               <TextBlock x:Name="TermName" Text="—" LetterSpacing="1"

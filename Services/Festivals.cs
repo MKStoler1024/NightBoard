@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 
 namespace NightBoard.Services;
@@ -89,6 +90,23 @@ public static class Festivals
         }
 
         return ("", start);
+    }
+
+    /// <summary>往后取若干个节日，按时间排序，不重复。</summary>
+    public static List<(string Name, DateTime Date)> Upcoming(DateTime from, int count)
+    {
+        var result = new List<(string Name, DateTime Date)>();
+        var cursor = from.Date;
+
+        while (result.Count < count)
+        {
+            var (name, date) = Next(cursor);
+            if (name.Length == 0) break;
+            result.Add((name, date));
+            cursor = date.Date.AddDays(1);
+        }
+
+        return result;
     }
 
     private static bool TryLunar(DateTime date, out int month, out int day, out bool isLeap)
