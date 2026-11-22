@@ -819,7 +819,7 @@ public partial class MainWindow : Window
         foreach (var tb in new[] { WxFeels, WxHum, WxAqi, WxWind, WxCity, WxMoon, WxAvg })
             tb.FontSize = 15 * s;
 
-        Sun.Width = 620 * s;
+        Sun.Width = 430 * s;
         Sun.MinHeight = 100 * s;
         Sun.Height = 196 * s;
 

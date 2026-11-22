@@ -130,39 +130,49 @@
 
 
         <!-- 这一格：节日 / 节气 / 倒计时 一组，下面日月循行 -->
-        <Grid Grid.Row="5" RowDefinitions="Auto,*">
+        <Grid Grid.Row="5" ColumnDefinitions="250,*">
 
-          <StackPanel Grid.Row="0" Spacing="9" Margin="4,4,0,0">
+          <StackPanel Grid.Column="0" Spacing="9" Margin="4,4,0,0"
+                      VerticalAlignment="Center">
 
-            <StackPanel x:Name="CountdownPanel" Orientation="Horizontal" Spacing="10">
+            <!-- 长名字（元旦、春节之类）自动折行：用 WrapPanel，宽度锁死一栏 -->
+            <WrapPanel x:Name="CountdownPanel" Orientation="Horizontal" Width="250">
               <TextBlock x:Name="CdName" Text="倒计时" LetterSpacing="2"
-                         VerticalAlignment="Center"/>
+                         VerticalAlignment="Center" Margin="0,0,9,2"/>
               <TextBlock x:Name="CdMid" Text="还有" LetterSpacing="1"
-                         VerticalAlignment="Center"/>
+                         VerticalAlignment="Center" Margin="0,0,9,2"/>
               <TextBlock x:Name="CdValue" Text=" " LetterSpacing="1"
-                         VerticalAlignment="Center"/>
+                         VerticalAlignment="Center" Margin="0,0,6,2"/>
               <TextBlock x:Name="CdUnit" Text="天" LetterSpacing="1"
-                         VerticalAlignment="Center"/>
-            </StackPanel>
+                         VerticalAlignment="Center" Margin="0,0,9,2"/>
+            </WrapPanel>
 
-            <StackPanel Orientation="Horizontal" Spacing="9">
-              <TextBlock x:Name="FestLabel" Text="下个节日" LetterSpacing="1" VerticalAlignment="Center"/>
-              <TextBlock x:Name="FestName" Text="—" LetterSpacing="1" VerticalAlignment="Center"/>
-              <TextBlock x:Name="FestDate" Text=" " LetterSpacing="1" VerticalAlignment="Center"/>
-              <TextBlock x:Name="FestLeft" Text=" " LetterSpacing="1" VerticalAlignment="Center"/>
-            </StackPanel>
+            <WrapPanel Orientation="Horizontal" Width="250">
+              <TextBlock x:Name="FestLabel" Text="下个节日" LetterSpacing="1"
+                         VerticalAlignment="Center" Margin="0,0,9,2"/>
+              <TextBlock x:Name="FestName" Text="—" LetterSpacing="1"
+                         VerticalAlignment="Center" Margin="0,0,9,2"/>
+              <TextBlock x:Name="FestDate" Text=" " LetterSpacing="1"
+                         VerticalAlignment="Center" Margin="0,0,9,2"/>
+              <TextBlock x:Name="FestLeft" Text=" " LetterSpacing="1"
+                         VerticalAlignment="Center" Margin="0,0,9,2"/>
+            </WrapPanel>
 
-            <StackPanel Orientation="Horizontal" Spacing="9">
-              <TextBlock x:Name="TermLabel" Text="下个节气" LetterSpacing="1" VerticalAlignment="Center"/>
-              <TextBlock x:Name="TermName" Text="—" LetterSpacing="1" VerticalAlignment="Center"/>
-              <TextBlock x:Name="TermDate" Text=" " LetterSpacing="1" VerticalAlignment="Center"/>
-              <TextBlock x:Name="TermLeft" Text=" " LetterSpacing="1" VerticalAlignment="Center"/>
-            </StackPanel>
+            <WrapPanel Orientation="Horizontal" Width="250">
+              <TextBlock x:Name="TermLabel" Text="下个节气" LetterSpacing="1"
+                         VerticalAlignment="Center" Margin="0,0,9,2"/>
+              <TextBlock x:Name="TermName" Text="—" LetterSpacing="1"
+                         VerticalAlignment="Center" Margin="0,0,9,2"/>
+              <TextBlock x:Name="TermDate" Text=" " LetterSpacing="1"
+                         VerticalAlignment="Center" Margin="0,0,9,2"/>
+              <TextBlock x:Name="TermLeft" Text=" " LetterSpacing="1"
+                         VerticalAlignment="Center" Margin="0,0,9,2"/>
+            </WrapPanel>
           </StackPanel>
 
-          <ctl:SunArc x:Name="Sun" Grid.Row="1" MinHeight="140"
-                      HorizontalAlignment="Center" VerticalAlignment="Center"
-                      Margin="0,10,0,0" Width="620" Height="206"/>
+          <ctl:SunArc x:Name="Sun" Grid.Column="1" MinHeight="140"
+                      HorizontalAlignment="Right" VerticalAlignment="Center"
+                      Margin="0,10,10,0" Width="300" Height="206"/>
         </Grid>
 
         <!-- 状态行：AstrBot + 电量 -->

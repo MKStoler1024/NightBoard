@@ -215,8 +215,9 @@ public class SunArc : Control
 
         // ---------------- 现在的位置 ----------------
         double nowX = X(nowH);
-        double sunAlt = geo ? Astro.SunAltitude(now, lat, lon) : sun[(int)Math.Round(nowH * 10)];
-        double moonAlt = geo ? Astro.MoonAltitude(now, lat, lon) : moon[(int)Math.Round(nowH * 10)];
+        // 从同一条采样折线里插值，圆点才会正好落在曲线上（直接再算一次会有秒级偏差）
+        double sunAlt = Sample(sun, nowH);
+        double moonAlt = Sample(moon, nowH);
 
         var sunPt = new Point(nowX, Fit(Y(sunAlt)));
         var moonPt = new Point(nowX, Fit(Y(moonAlt)));
@@ -252,6 +253,16 @@ public class SunArc : Control
         ctx.DrawEllipse(new SolidColorBrush(moonGlow, moonAlt > 0 ? 0.14 : 0.07), null, moonPt, 20, 20);
         DrawMoonDisc(ctx, moonPt, 11.6, phase,
             new SolidColorBrush(moonColor, moonAlt > 0 ? 0.98 : 0.82));
+    }
+
+    /// <summary>在 0.1 时一格的采样数组里做线性插值。</summary>
+    private static double Sample(double[] values, double hour)
+    {
+        double pos = Math.Clamp(hour, 0, (values.Length - 1) * 0.1) / 0.1;
+        int i = (int)pos;
+        if (i >= values.Length - 1) return values[^1];
+        double f = pos - i;
+        return values[i] + (values[i + 1] - values[i]) * f;
     }
 
     /// <summary>画一条曲线。above = true 时只画地平线以上那段。</summary>
