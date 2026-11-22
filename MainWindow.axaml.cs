@@ -952,7 +952,7 @@ public partial class MainWindow : Window
         var used = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var g in gpus)
         {
-            string title = g.Label;
+            string title = $"GPU · {g.Label}";
             if (!used.Add(title)) title = $"{title} · 2";
             BuildCard(g.Key, title, g.Kind == "igpu" ? Palette.Igpu : Palette.Dgpu, g.Name);
         }
@@ -1265,9 +1265,6 @@ public partial class MainWindow : Window
         var w = WeatherService.Current;
         sb.AppendLine($"weather: {w.City} {w.Temp}° {w.Text} aqi={w.Aqi} wind={w.Wind}");
         sb.AppendLine($"hourly={WeatherService.Hourly.Count} daily={WeatherService.Daily.Count}");
-
-        foreach (var d in Native.EnumerateDisplayDevices())
-            sb.AppendLine($"pnp {d.Name} {d.VendorId:X4}:{d.DeviceId:X4} problem={d.Problem}");
 
         foreach (var g in _sampler.GpuAdapters)
             sb.AppendLine($"gpu {g.Label} {g.Name} present={g.Present} state={g.State} " +

@@ -150,7 +150,7 @@ public sealed class SystemSampler : IDisposable
 
             // 关掉/休眠的卡不往曲线里塞 0：留空，曲线在这里断开，
             // 不然看着就像"贴着底的 0%"。
-            Push(list, a.State == GpuState.Running ? a.Util : double.NaN);
+            Push(list, a.State == GpuState.Running && !a.Suppressed ? a.Util : double.NaN);
         }
 
         foreach (var key in _gpuHist.Keys.ToList())
@@ -169,7 +169,7 @@ public sealed class SystemSampler : IDisposable
             _gpu.Scan();
         }
 
-        var gpus = _gpu.Adapters.Select(a => new GpuSample(
+        var gpus = _gpu.Adapters.Where(a => !a.Suppressed).Select(a => new GpuSample(
             a.Key,
             a.Name,
             a.Kind == GpuKind.Integrated ? "igpu" : "dgpu",

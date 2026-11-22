@@ -16,6 +16,9 @@ namespace NightBoard.Controls;
 ///
 /// 拿到经纬度之前（刚启动、或断网没有城市缓存）退回一天一条正弦的近似，
 /// 位置仍是准的，只是峰高按半日正弦估。
+///
+/// 纵轴不是固定刻度：按当天太阳与月亮的实际极值自适应压缩振幅，
+/// 月亮高挂、太阳沉得深时也不会把圆点顶出画布。
 /// </summary>
 public class SunArc : Control
 {
@@ -105,8 +108,6 @@ public class SunArc : Control
         double plotH = h - padT - padB;
         if (plotW < 80 || plotH < 40) return;
 
-        double baseY = padT + plotH * 0.52;
-        double amp = plotH * 0.44;
         double X(double hour) => padL + plotW * (hour / 24.0);
 
         var now = Now == DateTime.MinValue ? DateTime.Now : Now;
@@ -121,14 +122,31 @@ public class SunArc : Control
         var moon = new double[Steps];
         FillAltitudes(geo ? lat : 0, geo ? lon : 0, day, geo, Rise, Set, sun, moon);
 
-        // 纵轴固定一格 32°：日出日落压在地平线上，正午能顶到大半高。
-        // 深夜太阳落到 -60°，不必为了把它塞进画面而压扁整条曲线——
-        // 出界就让它出界，画到边上为止。
+        // 纵轴按当天的极值自适应：
+        // 取太阳与月亮的实际最高/最低点，算出刚好塞进绘图区的比例；
+        // 地平线随之上下浮动（不再固定 52%），这样面板再矮也不会把曲线压平。
         const double FullScale = 32;
-        const double MinShown = -33, MaxShown = 54;
+        double peak = 54, trough = -33;
+        for (int i = 0; i < Steps; i++)
+        {
+            if (sun[i] > peak) peak = sun[i];
+            if (moon[i] > peak) peak = moon[i];
+            if (sun[i] < trough) trough = sun[i];
+            if (moon[i] < trough) trough = moon[i];
+        }
+        peak = Math.Min(peak + 4, 84);
+        trough = Math.Max(trough - 4, -72);
 
-        double scale = amp / FullScale;
+        double margin = Math.Clamp(plotH * 0.08, 6, 20);
+        double span = Math.Max(peak - trough, 1);
+        double scale = Math.Min(plotH * 0.44 / FullScale, (plotH - 2 * margin) / span);
+        scale = Math.Max(scale, 0.05);
+
+        double baseY = padT + margin + peak * scale;
+        double MinShown = trough, MaxShown = peak;
         double Y(double alt) => baseY - alt * scale;
+        // 天体圆心兜底收边：极端角度下也不让它探出绘图区
+        double Fit(double y) => Math.Clamp(y, padT + 22, padT + plotH - 22);
 
         // ---------------- 网格与刻度 ----------------
         double[] ticks = { 0, 4, 8, 12, 16, 20, 24 };
@@ -200,8 +218,8 @@ public class SunArc : Control
         double sunAlt = geo ? Astro.SunAltitude(now, lat, lon) : sun[(int)Math.Round(nowH * 10)];
         double moonAlt = geo ? Astro.MoonAltitude(now, lat, lon) : moon[(int)Math.Round(nowH * 10)];
 
-        var sunPt = new Point(nowX, Y(sunAlt));
-        var moonPt = new Point(nowX, Y(moonAlt));
+        var sunPt = new Point(nowX, Fit(Y(sunAlt)));
+        var moonPt = new Point(nowX, Fit(Y(moonAlt)));
 
         // 天体周围留空：曲线和"现在"那条竖线都给它们让开，免得像穿在线上
         var holes = new List<(Point Center, double Radius)>

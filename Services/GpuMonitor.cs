@@ -31,6 +31,9 @@ public sealed class GpuAdapter
     /// <summary>最近一次枚举到它的时刻，用于断连后保留一段时间的卡片。</summary>
     public DateTime LastPresentUtc { get; set; } = DateTime.UtcNow;
 
+    /// <summary>已经不供数（被系统关掉/拔掉），先别显示卡片；读数回来再解除。</summary>
+    public bool Suppressed { get; set; }
+
     /// <summary>读数是否可信：真的空闲还是驱动已经不供数了。</summary>
     public GpuState State
     {
@@ -93,10 +96,13 @@ public sealed class GpuMonitor : IDisposable
     private readonly Native.PdhCounter _engine;
     private readonly Native.PdhCounter _vram;
     private DateTime _lastScan = DateTime.MinValue;
-    private const double RescanSeconds = 60;
+    private const double RescanSeconds = 5;
 
-    /// <summary>卡从枚举里消失后还保留多久卡片，免得临时断连就把布局抖一下。</summary>
-    private const double KeepMissingSeconds = 600;
+    /// <summary>卡从枚举里消失后最多再留这么久，之后连卡片一起撤掉。</summary>
+    private const double KeepMissingSeconds = 20;
+
+    /// <summary>独显连续多久读不到计数器就认定它被关了，把卡片撤掉。</summary>
+    private const double DropAfterSeconds = 60;
 
     public List<GpuAdapter> Adapters { get; private set; } = new();
     public string Note { get; private set; } = "";
@@ -138,8 +144,7 @@ public sealed class GpuMonitor : IDisposable
         _lastScan = DateTime.UtcNow;
 
         var descs = Native.EnumerateAdapters();
-        var pnp = Native.EnumerateDisplayDevices();
-        if (descs.Count == 0 && pnp.Count == 0)
+        if (descs.Count == 0)
         {
             if (Adapters.Count == 0)
                 Note = _engine.Ready ? "未检测到图形适配器" : _engine.Error;
@@ -149,57 +154,39 @@ public sealed class GpuMonitor : IDisposable
         var old = Adapters.ToDictionary(a => a.Key, a => a, StringComparer.OrdinalIgnoreCase);
         var merged = new Dictionary<string, GpuAdapter>(StringComparer.OrdinalIgnoreCase);
 
-        // 卡片按「厂商-设备」建，不按 LUID：这样开关一次显卡、驱动重载之后，
-        // 还是同一张卡、同一段曲线。
-        GpuAdapter GetOrAdd(uint vendor, uint device, string name, double dedMb, double sharedMb)
-        {
-            string baseKey = $"{vendor:X4}-{device:X4}";
-            string key = baseKey;
-            int dup = 0;
-            while (merged.TryGetValue(key, out var exist) && (exist.Vendor != vendor || exist.Device != device))
-                key = $"{baseKey}#{++dup}";
-
-            if (merged.TryGetValue(key, out var found))
-            {
-                if (dedMb > found.VramTotalMb) found.VramTotalMb = dedMb;
-                return found;
-            }
-
-            var made = new GpuAdapter
-            {
-                Key = key,
-                Name = name,
-                Kind = Classify(vendor, name, dedMb, sharedMb),
-                Vendor = vendor,
-                Device = device,
-                VramTotalMb = dedMb,
-                Present = false,
-            };
-            merged[key] = made;
-            return made;
-        }
-
-        // 先按硬件建卡：设备管理器里关掉的独显也会在这一步出现
-        foreach (var d in pnp)
-        {
-            var card = GetOrAdd(d.VendorId, d.DeviceId, d.Name, 0, 0);
-            if (d.Problem == 0) card.Present = true;
-            if (card.Present) card.LastPresentUtc = DateTime.UtcNow;
-        }
-
-        // 再用 DXGI 补 LUID、显存，并把正在供数的卡标成在线
+        // 卡片按「厂商-设备」建，不按 LUID：开关一次显卡后还是同一张卡
         foreach (var d in descs)
         {
             double dedMb = d.DedicatedVideoMemory.ToUInt64() / 1048576.0;
             double sharedMb = d.SharedSystemMemory.ToUInt64() / 1048576.0;
 
-            var card = GetOrAdd(d.VendorId, d.DeviceId, d.Description, dedMb, sharedMb);
+            string baseKey = $"{d.VendorId:X4}-{d.DeviceId:X4}";
+            string key = baseKey;
+            int dup = 0;
+            while (merged.TryGetValue(key, out var exist) &&
+                   (exist.Vendor != d.VendorId || exist.Device != d.DeviceId))
+                key = $"{baseKey}#{++dup}";
+
+            if (!merged.TryGetValue(key, out var card))
+            {
+                card = new GpuAdapter
+                {
+                    Key = key,
+                    Name = d.Description,
+                    Kind = Classify(d.VendorId, d.Description, dedMb, sharedMb),
+                    Vendor = d.VendorId,
+                    Device = d.DeviceId,
+                    VramTotalMb = dedMb,
+                };
+                merged[key] = card;
+            }
+
             card.Luids.Add($"{d.AdapterLuid.HighPart:X8}:{d.AdapterLuid.LowPart:X8}");
             card.Present = true;
             card.LastPresentUtc = DateTime.UtcNow;
         }
 
-        // 枚举里彻底没了（拔掉了）：留十分钟再删，别让布局立刻跳
+        // 枚举里没有的卡（拔掉/关掉）短暂留一下，避免一次枚举失败就让布局抖
         foreach (var (key, prev) in old)
         {
             if (merged.ContainsKey(key)) continue;
@@ -217,6 +204,7 @@ public sealed class GpuMonitor : IDisposable
                 a.Util = prev.Util;
                 a.VramUsedMb = prev.VramUsedMb;
                 a.LastCounterUtc = prev.LastCounterUtc;
+                a.LastPresentUtc = prev.LastPresentUtc;
             }
         }
 
@@ -224,11 +212,6 @@ public sealed class GpuMonitor : IDisposable
             .OrderBy(a => a.Kind == GpuKind.Discrete ? 0 : 1)
             .ThenBy(a => a.Name)
             .ToList();
-
-        // 调试用：NB_GPUSLEEP=off 假装独显在设备管理器里被关掉
-        if (string.Equals(Environment.GetEnvironmentVariable("NB_GPUSLEEP"), "off", StringComparison.OrdinalIgnoreCase))
-            foreach (var a in merged.Values)
-                if (a.Kind == GpuKind.Discrete) a.Present = false;
 
         Note = _engine.Ready ? "" : _engine.Error;
     }
@@ -308,10 +291,22 @@ public sealed class GpuMonitor : IDisposable
         {
             a.VramUsedMb = vram.GetValueOrDefault(a.Key) / 1048576.0;
 
-            // 调试用：假装独显被系统关掉，验证卡片与曲线的降级表现
-            if (simSleep && a.Kind == GpuKind.Discrete) continue;
+            // 调试用：假装独显被系统关掉，验证卡片会消失
+            bool simOff = simSleep && a.Kind == GpuKind.Discrete;
 
-            if (seen.Contains(a.Key)) a.LastCounterUtc = DateTime.UtcNow;
+            if (!simOff && seen.Contains(a.Key))
+            {
+                a.LastCounterUtc = DateTime.UtcNow;
+                a.Suppressed = false;          // 读数回来了，卡片重新出现
+            }
+
+            // 独显连续读不到计数器：Windows 关掉显卡时计数器比设备先消失。
+            // 到点就把卡片撤掉，和开机时就没这块卡的表现一致。
+            if (a.Kind == GpuKind.Discrete &&
+                (DateTime.UtcNow - a.LastCounterUtc).TotalSeconds > DropAfterSeconds)
+                a.Suppressed = true;
+
+            if (!a.Present) a.Suppressed = true;
         }
     }
 
