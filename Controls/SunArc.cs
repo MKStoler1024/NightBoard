@@ -146,7 +146,7 @@ public class SunArc : Control
         double MinShown = trough, MaxShown = peak;
         double Y(double alt) => baseY - alt * scale;
         // 天体圆心兜底收边：极端角度下也不让它探出绘图区
-        double Fit(double y) => Math.Clamp(y, padT + 22, padT + plotH - 22);
+        double Fit(double y) => Math.Clamp(y, padT + margin, padT + plotH - margin);
 
         // ---------------- 网格与刻度 ----------------
         double[] ticks = { 0, 4, 8, 12, 16, 20, 24 };
@@ -222,11 +222,14 @@ public class SunArc : Control
         var sunPt = new Point(nowX, Fit(Y(sunAlt)));
         var moonPt = new Point(nowX, Fit(Y(moonAlt)));
 
+
         // 天体周围留空：曲线和"现在"那条竖线都给它们让开，免得像穿在线上
+        // 洞只比圆盘大一点点：曲线端点贴着圆盘边缘，看起来就是穿过去的；
+        // 之前留 14px 会在圆点周围空一圈，视觉上像脱轨。
         var holes = new List<(Point Center, double Radius)>
         {
-            (sunPt, 14),
-            (moonPt, 14),
+            (sunPt, 10.5),
+            (moonPt, 10.5),
         };
 
         // 整条画淡的，地平线以上再压一遍加粗
