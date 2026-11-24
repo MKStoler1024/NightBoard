@@ -50,13 +50,27 @@ public sealed class AppSettings
 
     public void Save()
     {
+        // 先写临时文件再替换：写一半断电也不会把原配置弄成半截 JSON
         try
         {
             Directory.CreateDirectory(Dir);
-            File.WriteAllText(FilePath, JsonSerializer.Serialize(this,
-                new JsonSerializerOptions { WriteIndented = true }));
+            var json = JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true });
+            var tmp = FilePath + ".tmp";
+            File.WriteAllText(tmp, json);
+
+            if (File.Exists(FilePath))
+            {
+                File.Replace(tmp, FilePath, null, ignoreMetadataErrors: true);
+            }
+            else
+            {
+                File.Move(tmp, FilePath);
+            }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            Services.CrashLog.Write(ex, "AppSettings.Save");
+        }
     }
 
     /// <summary>把设置推给天气服务。</summary>
