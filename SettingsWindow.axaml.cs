@@ -26,7 +26,19 @@ public partial class SettingsWindow : Window
         Opened += (_, _) => DialogAppearance.Apply(this);
         Cursor = new Cursor(StandardCursorType.Arrow);
 
-        KeyDown += (_, e) => { if (e.Key == Key.Escape) Close(false); };
+        KeyDown += (_, e) =>
+        {
+            if (e.Key == Key.Escape)
+            {
+                Close(false);
+                e.Handled = true;
+            }
+            else if (e.Key == Key.Enter && FocusManager?.GetFocusedElement() != CityBox)
+            {
+                OnSave(this, new RoutedEventArgs());
+                e.Handled = true;
+            }
+        };
         var s = AppSettings.Load();
 
         CityBox.Text = string.IsNullOrWhiteSpace(WeatherService.CityName)
