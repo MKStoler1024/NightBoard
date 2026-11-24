@@ -15,6 +15,8 @@ internal static class DialogAppearance
     /// <summary>Windows 默认给标题栏配系统亮色，和夜板的底子撞得厉害，这里强制跟随主题。</summary>
     public static void UseDarkTitleBar(Window window)
     {
+        if (!OperatingSystem.IsWindows()) return;
+
         var handle = window.TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
         if (handle == IntPtr.Zero) return;
 

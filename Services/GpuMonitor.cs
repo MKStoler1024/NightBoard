@@ -109,6 +109,15 @@ public sealed class GpuMonitor : IDisposable
 
     public GpuMonitor()
     {
+        if (!OperatingSystem.IsWindows())
+        {
+            // Linux/macOS 没有 PDH/DXGI，直接当没有显卡数据
+            _engine = null!;
+            _vram = null!;
+            Note = "当前平台不支持显卡采集";
+            return;
+        }
+
         _engine = new Native.PdhCounter(@"\GPU Engine(*)\Utilization Percentage");
         _vram = new Native.PdhCounter(@"\GPU Adapter Memory(*)\Dedicated Usage");
         Scan(force: true);
@@ -140,6 +149,8 @@ public sealed class GpuMonitor : IDisposable
 
     public void Scan(bool force = false)
     {
+        if (!OperatingSystem.IsWindows()) return;
+
         if (!force && (DateTime.UtcNow - _lastScan).TotalSeconds < RescanSeconds) return;
         _lastScan = DateTime.UtcNow;
 
@@ -231,6 +242,8 @@ public sealed class GpuMonitor : IDisposable
 
     public void Sample()
     {
+        if (!OperatingSystem.IsWindows()) return;
+
         if (Adapters.Count == 0)
         {
             Scan(force: true);

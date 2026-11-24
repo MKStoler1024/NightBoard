@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
 
 namespace NightBoard.Services;
@@ -23,6 +25,9 @@ internal static unsafe class Native
     /// <summary>返回自上次调用以来的整体 CPU 占用（%）。</summary>
     public static double CpuUsage(ref ulong prevIdle, ref ulong prevTotal)
     {
+        if (!OperatingSystem.IsWindows())
+            return CpuUsageLinux(ref prevIdle, ref prevTotal);
+
         if (!GetSystemTimes(out var idle, out var kernel, out var user)) return 0;
 
         ulong i = idle.Value;
@@ -35,6 +40,37 @@ internal static unsafe class Native
         if (dt == 0) return 0;
         double usage = (1.0 - (double)di / dt) * 100.0;
         return Math.Clamp(usage, 0, 100);
+    }
+
+    private static double CpuUsageLinux(ref ulong prevIdle, ref ulong prevTotal)
+    {
+        try
+        {
+            var line = File.ReadLines("/proc/stat").FirstOrDefault();
+            if (line == null || !line.StartsWith("cpu ")) return 0;
+
+            var parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            ulong total = 0;
+            for (int i = 1; i < parts.Length && i <= 8; i++)
+            {
+                if (ulong.TryParse(parts[i], out var v)) total += v;
+            }
+            ulong idle = 0;
+            if (parts.Length > 4 && ulong.TryParse(parts[4], out var idleTicks)) idle += idleTicks; // idle
+            if (parts.Length > 5 && ulong.TryParse(parts[5], out var ioTicks)) idle += ioTicks;     // iowait
+
+            ulong di = idle - prevIdle;
+            ulong dt = total - prevTotal;
+            prevIdle = idle;
+            prevTotal = total;
+            if (dt == 0) return 0;
+
+            return Math.Clamp((1.0 - (double)di / dt) * 100.0, 0, 100);
+        }
+        catch
+        {
+            return 0;
+        }
     }
 
     // ------------------------------------------------------------- 内存
@@ -58,11 +94,43 @@ internal static unsafe class Native
 
     public static (double pct, double usedGb, double totalGb) Memory()
     {
+        if (!OperatingSystem.IsWindows())
+            return MemoryLinux();
+
         var m = new MEMORYSTATUSEX { dwLength = (uint)Marshal.SizeOf<MEMORYSTATUSEX>() };
         if (!GlobalMemoryStatusEx(ref m)) return (0, 0, 0);
         double total = m.ullTotalPhys / 1073741824.0;
         double used = (m.ullTotalPhys - m.ullAvailPhys) / 1073741824.0;
         return (m.dwMemoryLoad, Math.Round(used, 1), Math.Round(total, 1));
+    }
+
+    private static (double pct, double usedGb, double totalGb) MemoryLinux()
+    {
+        try
+        {
+            double totalKb = 0, availKb = 0;
+            foreach (var line in File.ReadLines("/proc/meminfo"))
+            {
+                if (line.StartsWith("MemTotal:")) totalKb = ParseKb(line);
+                else if (line.StartsWith("MemAvailable:")) availKb = ParseKb(line);
+                if (totalKb > 0 && availKb > 0) break;
+            }
+            if (totalKb <= 0) return (0, 0, 0);
+
+            double totalGb = totalKb / 1024 / 1024;
+            double usedGb = (totalKb - availKb) / 1024 / 1024;
+            return (Math.Clamp(usedGb / totalGb * 100, 0, 100), usedGb, totalGb);
+        }
+        catch
+        {
+            return (0, 0, 0);
+        }
+    }
+
+    private static double ParseKb(string line)
+    {
+        var parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return parts.Length >= 2 && double.TryParse(parts[1], out var v) ? v : 0;
     }
 
     // ------------------------------------------------------------- 电池
@@ -83,6 +151,9 @@ internal static unsafe class Native
 
     public static (int? pct, bool? plugged, int? secsLeft) Battery()
     {
+        if (!OperatingSystem.IsWindows())
+            return BatteryLinux();
+
         if (!GetSystemPowerStatus(out var s)) return (null, null, null);
         if (s.BatteryFlag == 128) return (null, null, null);        // 无电池
 
@@ -188,6 +259,34 @@ internal static unsafe class Native
         public void Dispose()
         {
             if (_query != IntPtr.Zero) { PdhCloseQuery(_query); _query = IntPtr.Zero; }
+        }
+    }
+
+    private static (int? pct, bool? plugged, int? secsLeft) BatteryLinux()
+    {
+        try
+        {
+            var dir = Directory.GetDirectories("/sys/class/power_supply")
+                .FirstOrDefault(d => Path.GetFileName(d).StartsWith("BAT", StringComparison.OrdinalIgnoreCase));
+            if (dir == null) return (null, null, null);
+
+            int? pct = null;
+            bool? plugged = null;
+            var capFile = Path.Combine(dir, "capacity");
+            if (File.Exists(capFile) && int.TryParse(File.ReadAllText(capFile).Trim(), out var cap)) pct = cap;
+
+            var statusFile = Path.Combine(dir, "status");
+            if (File.Exists(statusFile))
+            {
+                var st = File.ReadAllText(statusFile).Trim();
+                plugged = st.Equals("Charging", StringComparison.OrdinalIgnoreCase)
+                          || st.Equals("Full", StringComparison.OrdinalIgnoreCase);
+            }
+            return (pct, plugged, null);
+        }
+        catch
+        {
+            return (null, null, null);
         }
     }
 

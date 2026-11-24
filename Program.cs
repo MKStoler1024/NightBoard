@@ -82,13 +82,19 @@ internal static class Program
     /// <summary>主题是否跟随日出日落。</summary>
     public static bool AutoTheme { get; private set; } = true;
 
-    public static AppBuilder BuildAvaloniaApp() =>
-        AppBuilder.Configure<App>()
-            .UsePlatformDetect()
-            .With(new Win32PlatformOptions
+    public static AppBuilder BuildAvaloniaApp()
+    {
+        var builder = AppBuilder.Configure<App>().UsePlatformDetect();
+
+        if (OperatingSystem.IsWindows())
+        {
+            builder = builder.With(new Win32PlatformOptions
             {
                 // 夜间看板不需要透明/圆角这类合成开销
                 CompositionMode = new[] { Win32CompositionMode.RedirectionSurface },
-            })
-            .LogToTrace();
+            });
+        }
+
+        return builder.LogToTrace();
+    }
 }
