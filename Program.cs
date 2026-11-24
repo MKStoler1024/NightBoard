@@ -18,6 +18,8 @@ internal static class Program
     [STAThread]
     public static void Main(string[] args)
     {
+        Services.CrashLog.Install();
+
         var list = args.ToList();
 
         // 先吃用户设置，命令行参数随后可以临时压过它
