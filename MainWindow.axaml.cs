@@ -61,6 +61,10 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
 
+        // 换显示器、改缩放比之后重新算一遍 UI 倍率
+        Screens.Changed += (_, _) => Dispatcher.UIThread.Post(ApplyScale);
+        PositionChanged += (_, _) => Dispatcher.UIThread.Post(ApplyScale);
+
         _cursorIdle = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
         _cursorIdle.Tick += (_, _) =>
         {
@@ -550,7 +554,7 @@ public partial class MainWindow : Window
         Set(WxHum, $"{w.Humidity}%");
         Set(WxAqi, $"{w.Aqi}  {w.AqiLevel}");
         Set(WxWind, string.IsNullOrEmpty(w.Wind) ? "—" : w.Wind);
-        Set(WxCity, w.City);
+        Set(WxCity, WeatherService.IsStale ? $"{w.City} · {WeatherService.AgeText}" : w.City);
         Set(WxMoon, MoonText(now));
 
         RebuildAlerts(w);
@@ -577,6 +581,16 @@ public partial class MainWindow : Window
         return $"{name}  {lit}%";
     }
 
+    private static readonly Dictionary<string, Avalonia.Media.SolidColorBrush> _alertBrushes = new();
+
+    private static Avalonia.Media.SolidColorBrush AlertBrush(string level)
+    {
+        if (_alertBrushes.TryGetValue(level, out var cached)) return cached;
+        var brush = new Avalonia.Media.SolidColorBrush(AlertChip.ColorOf(level), 0.9);
+        _alertBrushes[level] = brush;
+        return brush;
+    }
+
     private void RebuildAlerts(WeatherNow w)
     {
         var alerts = w.Alerts ?? (IReadOnlyList<WeatherAlert>)Array.Empty<WeatherAlert>();
@@ -592,7 +606,7 @@ public partial class MainWindow : Window
             {
                 Width = 5 * _scale,
                 Height = 5 * _scale,
-                Fill = new SolidColorBrush(AlertChip.ColorOf(a.Level), 0.9),
+                Fill = AlertBrush(a.Level),
                 VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
                 Margin = new Thickness(0, 0, 7 * _scale, 0),
             };

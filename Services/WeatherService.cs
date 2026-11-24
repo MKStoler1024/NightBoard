@@ -65,6 +65,25 @@ public static class WeatherService
 
     private static int _fetching;
     private static DateTime _nextFetch = DateTime.MinValue;
+    private static int _failStreak;
+
+    /// <summary>数据是否已经过期（超过 10 分钟没刷新成功）。</summary>
+    public static bool IsStale =>
+        LastUpdate == DateTime.MinValue || (DateTime.Now - LastUpdate) > TimeSpan.FromMinutes(10);
+
+    /// <summary>「12 分钟前」这样的年龄描述，界面在离线时显示。</summary>
+    public static string AgeText
+    {
+        get
+        {
+            if (LastUpdate == DateTime.MinValue) return "无数据";
+            var span = DateTime.Now - LastUpdate;
+            if (span.TotalMinutes < 1) return "刚刚";
+            if (span.TotalHours < 1) return $"{(int)span.TotalMinutes} 分钟前";
+            if (span.TotalDays < 1) return $"{(int)span.TotalHours} 小时前";
+            return $"{(int)span.TotalDays} 天前";
+        }
+    }
 
     public static WeatherNow Current { get; private set; } = WeatherNow.Empty;
 
@@ -490,6 +509,8 @@ public static class WeatherService
             Daily = daily;
             LastUpdate = DateTime.Now;
             Updated?.Invoke();
+            _failStreak = 0;
+            _nextFetch = DateTime.Now.AddMinutes(5);
 
             try
             {
@@ -498,7 +519,13 @@ public static class WeatherService
             }
             catch { }
         }
-        catch { /* 断网就用缓存 */ }
+        catch (Exception ex)
+        {
+            // 失败按 1、2、4、8… 分钟退避，最多 30 分钟，避免断网时死循环打请求
+            _failStreak = Math.Min(_failStreak + 1, 5);
+            _nextFetch = DateTime.Now.AddMinutes(Math.Min(30, Math.Pow(2, _failStreak)));
+            CrashLog.Write(ex, "WeatherService.Refresh");
+        }
         finally
         {
             Interlocked.Exchange(ref _fetching, 0);
