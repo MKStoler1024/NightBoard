@@ -89,19 +89,95 @@ public class SunArc : Control
         return -Math.Sin(Math.PI * (d - visibleHours) / (24 - visibleHours));
     }
 
+    // ---------- 绘图资源缓存：每秒重绘时不再新建笔刷/文字 ----------
+    private bool _cacheReady;
+    private bool _cacheLight;
+    private Color _textColor;
+    private Color _captionColor;
+    private Pen? _gridPen, _horizonPen, _nowPen;
+    private Pen? _sunDimPen, _sunBrightPen, _moonDimPen, _moonBrightPen;
+    private LinearGradientBrush? _veilLight, _veilDark;
+    private SolidColorBrush? _sunGlowOn, _sunGlowOff, _sunLit, _sunDim;
+    private SolidColorBrush? _moonGlowOn, _moonGlowOff, _moonLit, _moonDim;
+    private SolidColorBrush? _craterShade;
+    private readonly Dictionary<(string, double, bool, uint), FormattedText> _textCache = new();
+
+    private void EnsureCache(bool light)
+    {
+        if (_cacheReady && _cacheLight == light) return;
+
+        var lineColor = light ? Color.Parse("#A79E8E") : Color.Parse("#4A443A");
+        var gridColor = light ? Color.Parse("#C9C2B4") : Color.Parse("#2A2723");
+        _textColor = light ? Color.Parse("#6B6459") : Color.Parse("#8A8071");
+        _captionColor = light ? Color.Parse("#4A443A") : Color.Parse("#B7AC97");
+        var sunColor = light ? Color.Parse("#C08A1E") : Color.Parse("#E0B65C");
+        var sunGlow = light ? Color.Parse("#F0DDB0") : Color.Parse("#8A7438");
+        var moonColor = light ? Color.Parse("#6B7787") : Color.Parse("#9AA9BC");
+        var moonGlow = light ? Color.Parse("#C8D2DE") : Color.Parse("#4E5967");
+
+        _gridPen = new Pen(new SolidColorBrush(gridColor, light ? 0.55 : 0.45), 1);
+        _horizonPen = new Pen(new SolidColorBrush(lineColor, 0.8), 1.2);
+        _nowPen = new Pen(new SolidColorBrush(lineColor, 0.45), 1);
+        _sunDimPen = new Pen(new SolidColorBrush(sunColor, light ? 0.34 : 0.28), 1.8);
+        _sunBrightPen = new Pen(new SolidColorBrush(sunColor, light ? 0.95 : 1.0), 3.2,
+            lineCap: PenLineCap.Round);
+        _moonDimPen = new Pen(new SolidColorBrush(moonColor, light ? 0.28 : 0.24), 1.6);
+        _moonBrightPen = new Pen(new SolidColorBrush(moonColor, light ? 0.72 : 0.66), 2.6,
+            lineCap: PenLineCap.Round);
+
+        byte top = light ? (byte)0x14 : (byte)0x12;
+        _veilLight = new LinearGradientBrush
+        {
+            StartPoint = new RelativePoint(0, 0, RelativeUnit.Relative),
+            EndPoint = new RelativePoint(0, 1, RelativeUnit.Relative),
+            GradientStops =
+            {
+                new GradientStop(Color.FromArgb(top, 0, 0, 0), 0),
+                new GradientStop(Color.FromArgb(0x02, 0, 0, 0), 1),
+            },
+        };
+        _veilDark = new LinearGradientBrush
+        {
+            StartPoint = new RelativePoint(0, 0, RelativeUnit.Relative),
+            EndPoint = new RelativePoint(0, 1, RelativeUnit.Relative),
+            GradientStops =
+            {
+                new GradientStop(Color.FromArgb(top, 0xFF, 0xFF, 0xFF), 0),
+                new GradientStop(Color.FromArgb(0x02, 0xFF, 0xFF, 0xFF), 1),
+            },
+        };
+
+        _sunGlowOn = new SolidColorBrush(sunGlow, 0.26);
+        _sunGlowOff = new SolidColorBrush(sunGlow, 0.12);
+        _sunLit = new SolidColorBrush(sunColor, 1.0);
+        _sunDim = new SolidColorBrush(sunColor, 0.78);
+        _moonGlowOn = new SolidColorBrush(moonGlow, 0.14);
+        _moonGlowOff = new SolidColorBrush(moonGlow, 0.07);
+        _moonLit = new SolidColorBrush(moonColor, 0.98);
+        _moonDim = new SolidColorBrush(moonColor, 0.82);
+        _craterShade = new SolidColorBrush(Palette.Bg, 0.32);
+
+        _textCache.Clear();
+        _cacheLight = light;
+        _cacheReady = true;
+    }
+
+    private FormattedText GetText(string s, double size, Color color, bool medium = false)
+    {
+        var key = (s, size, medium, color.ToUInt32());
+        if (_textCache.TryGetValue(key, out var cached)) return cached;
+        var made = Text(s, size, color, medium);
+        _textCache[key] = made;
+        return made;
+    }
+
     public override void Render(DrawingContext ctx)
     {
         double w = Bounds.Width, h = Bounds.Height;
         if (w < 160 || h < 120) return;
 
         bool light = Palette.IsLight;
-        var lineColor = light ? Color.Parse("#A79E8E") : Color.Parse("#4A443A");
-        var gridColor = light ? Color.Parse("#C9C2B4") : Color.Parse("#2A2723");
-        var textColor = light ? Color.Parse("#6B6459") : Color.Parse("#8A8071");
-        var sunColor = light ? Color.Parse("#C08A1E") : Color.Parse("#E0B65C");
-        var sunGlow = light ? Color.Parse("#F0DDB0") : Color.Parse("#8A7438");
-        var moonColor = light ? Color.Parse("#6B7787") : Color.Parse("#9AA9BC");
-        var moonGlow = light ? Color.Parse("#C8D2DE") : Color.Parse("#4E5967");
+        EnsureCache(light);
 
         double padL = 14, padR = 14, padT = 34, padB = 30;
         double plotW = w - padL - padR;
@@ -150,7 +226,7 @@ public class SunArc : Control
 
         // ---------------- 网格与刻度 ----------------
         double[] ticks = { 0, 4, 8, 12, 16, 20, 24 };
-        var gridPen = new Pen(new SolidColorBrush(gridColor, light ? 0.55 : 0.45), 1);
+        var gridPen = _gridPen!;
 
         foreach (double t in ticks)
         {
@@ -159,39 +235,18 @@ public class SunArc : Control
                 ctx.DrawLine(gridPen, new Point(x, padT), new Point(x, padT + plotH));
 
             string label = ((int)(t % 24)).ToString();
-            var tb = Text(label, 13.5, textColor);
+            var tb = GetText(label, 13.5, _textColor);
             ctx.DrawText(tb, new Point(x - tb.Width / 2, h - padB + 8));
         }
 
         // 地平线以下的"地下"遮罩：夜间用浅色、日间用深色，正好反过来。
         // 从上往下渐淡，免得成一块生硬的灰板。
-        byte top = light ? (byte)0x14 : (byte)0x12;
-        var veil = light
-            ? new LinearGradientBrush
-            {
-                StartPoint = new RelativePoint(0, 0, RelativeUnit.Relative),
-                EndPoint = new RelativePoint(0, 1, RelativeUnit.Relative),
-                GradientStops =
-                {
-                    new GradientStop(Color.FromArgb(top, 0, 0, 0), 0),
-                    new GradientStop(Color.FromArgb(0x02, 0, 0, 0), 1),
-                },
-            }
-            : new LinearGradientBrush
-            {
-                StartPoint = new RelativePoint(0, 0, RelativeUnit.Relative),
-                EndPoint = new RelativePoint(0, 1, RelativeUnit.Relative),
-                GradientStops =
-                {
-                    new GradientStop(Color.FromArgb(top, 0xFF, 0xFF, 0xFF), 0),
-                    new GradientStop(Color.FromArgb(0x02, 0xFF, 0xFF, 0xFF), 1),
-                },
-            };
+        var veil = light ? _veilLight! : _veilDark!;
 
         ctx.FillRectangle(veil, new Rect(padL, baseY, plotW, padT + plotH - baseY));
 
         // 地平线
-        ctx.DrawLine(new Pen(new SolidColorBrush(lineColor, 0.8), 1.2),
+        ctx.DrawLine(_horizonPen!,
             new Point(padL, baseY), new Point(padL + plotW, baseY));
 
         // 地平线右端的"水平"字样去掉了：月亮贴着地平线时会被它压住，
@@ -200,7 +255,7 @@ public class SunArc : Control
         // ---------------- 顶部说明 ----------------
         if (!string.IsNullOrEmpty(Caption))
         {
-            var cap = Text(Caption, 15, light ? Color.Parse("#4A443A") : Color.Parse("#B7AC97"), medium: true);
+            var cap = GetText(Caption, 15, _captionColor, medium: true);
             ctx.DrawText(cap, new Point(X(12) - cap.Width / 2, padT - cap.Height - 10));
         }
 
@@ -233,29 +288,25 @@ public class SunArc : Control
         };
 
         // 整条画淡的，地平线以上再压一遍加粗
-        DrawCurve(ctx, sunPts, new Pen(new SolidColorBrush(sunColor, light ? 0.34 : 0.28), 1.8),
-            Y, MinShown, MaxShown, null, holes);
-        DrawCurve(ctx, sunPts, new Pen(new SolidColorBrush(sunColor, light ? 0.95 : 1.0), 3.2,
-            lineCap: PenLineCap.Round), Y, MinShown, MaxShown, true, holes);
+        DrawCurve(ctx, sunPts, _sunDimPen!, Y, MinShown, MaxShown, null, holes);
+        DrawCurve(ctx, sunPts, _sunBrightPen!, Y, MinShown, MaxShown, true, holes);
 
-        DrawCurve(ctx, moonPts, new Pen(new SolidColorBrush(moonColor, light ? 0.28 : 0.24), 1.6),
-            Y, MinShown, MaxShown, null, holes);
-        DrawCurve(ctx, moonPts, new Pen(new SolidColorBrush(moonColor, light ? 0.72 : 0.66), 2.6,
-            lineCap: PenLineCap.Round), Y, MinShown, MaxShown, true, holes);
+        DrawCurve(ctx, moonPts, _moonDimPen!, Y, MinShown, MaxShown, null, holes);
+        DrawCurve(ctx, moonPts, _moonBrightPen!, Y, MinShown, MaxShown, true, holes);
 
         // 竖直的"现在"线，同样在两天体处断开
-        var nowPen = new Pen(new SolidColorBrush(lineColor, 0.45), 1);
+        var nowPen = _nowPen!;
         DrawVerticalWithHoles(ctx, nowX, padT, padT + plotH, holes, nowPen);
 
         // 太阳
-        ctx.DrawEllipse(new SolidColorBrush(sunGlow, sunAlt > 0 ? 0.26 : 0.12), null, sunPt, 20, 20);
-        ctx.DrawEllipse(new SolidColorBrush(sunColor, sunAlt > 0 ? 1.0 : 0.78), null, sunPt, 9.4, 9.4);
+        ctx.DrawEllipse(sunAlt > 0 ? _sunGlowOn! : _sunGlowOff!, null, sunPt, 20, 20);
+        ctx.DrawEllipse(sunAlt > 0 ? _sunLit! : _sunDim!, null, sunPt, 9.4, 9.4);
 
         // 月亮：按真实相位画亮面，再点几处环形山
         double phase = Astro.MoonPhase(now);
-        ctx.DrawEllipse(new SolidColorBrush(moonGlow, moonAlt > 0 ? 0.14 : 0.07), null, moonPt, 20, 20);
+        ctx.DrawEllipse(moonAlt > 0 ? _moonGlowOn! : _moonGlowOff!, null, moonPt, 20, 20);
         DrawMoonDisc(ctx, moonPt, 11.6, phase,
-            new SolidColorBrush(moonColor, moonAlt > 0 ? 0.98 : 0.82));
+            moonAlt > 0 ? _moonLit! : _moonDim!);
     }
 
     /// <summary>在 0.1 时一格的采样数组里做线性插值。</summary>
