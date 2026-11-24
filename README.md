@@ -1,5 +1,7 @@
 # 夜板 NightBoard
 
+[![build](https://github.com/MKStoler1024/NightBoard/actions/workflows/build.yml/badge.svg)](https://github.com/MKStoler1024/NightBoard/actions/workflows/build.yml)
+
 挂在屏幕上的信息板。无边框、深色、安静，适合副屏常驻或当屏保。
 
 ![夜间](docs/dark.png)
